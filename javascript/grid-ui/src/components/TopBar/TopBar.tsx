@@ -94,11 +94,11 @@ function TopBar (props): JSX.Element {
                 variant="h4"
                 noWrap
               >
-                Selenium Grid
+                Krish Grid
               </Typography>
-              <Typography variant="body2">
+              {/* <Typography variant="body2">
                 {subheader}
-              </Typography>
+              </Typography> */}
             </Box>
           </Box>
         </Toolbar>

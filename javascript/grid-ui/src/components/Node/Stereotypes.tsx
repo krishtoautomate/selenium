@@ -48,6 +48,7 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
     </Grid>
   )
 }
+//add slot name here
 
 function Stereotypes (props) {
   const { stereotypes } = props

@@ -48,6 +48,14 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
           </Badge>
         </Tooltip>
       </Grid>
+      <Grid item marginBottom={0} marginRight={1}>
+        <Typography variant='center'>
+          <strong>
+            {slotStereotype.udid.length > 0 ? slotStereotype.udid : ''}
+          </strong>
+        </Typography>
+      </Grid>
+
     </Grid>
   )
 }

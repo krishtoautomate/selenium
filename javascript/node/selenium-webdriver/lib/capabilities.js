@@ -174,6 +174,9 @@ const Capability = {
    */
   PLATFORM_NAME: 'platformName',
 
+  /** Identifies the device udid. */
+  UDID: 'appium:udid',
+
   /**
    * Describes the proxy configuration to use for a new WebDriver session.
    */

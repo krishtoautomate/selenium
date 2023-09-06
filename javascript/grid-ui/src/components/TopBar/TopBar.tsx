@@ -56,7 +56,7 @@ function TopBar (props): JSX.Element {
               {drawerOpen ? (<ChevronLeftIcon/>) : (<MenuIcon/>)}
             </IconButton>
           )}
-          <IconButton
+          {/* <IconButton
             edge="start"
             color="inherit"
             aria-label="help"
@@ -65,7 +65,7 @@ function TopBar (props): JSX.Element {
             size="large"
           >
             <HelpIcon/>
-          </IconButton>
+          </IconButton> */}
           <Box
             sx={{
               display: 'flex',
@@ -79,9 +79,9 @@ function TopBar (props): JSX.Element {
               src={seleniumGridLogo}
               alt="Selenium Grid Logo"
               sx={{
-                width: 52,
-                height: 52,
-                marginRight: '10px'
+                width: 72,
+                height: 72,
+                marginRight: '-4px'
               }}
             />
             <Box
@@ -94,7 +94,7 @@ function TopBar (props): JSX.Element {
                 variant="h4"
                 noWrap
               >
-                Krish Grid
+              Automation Grid
               </Typography>
               {/* <Typography variant="body2">
                 {subheader}

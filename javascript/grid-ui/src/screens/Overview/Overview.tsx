@@ -78,7 +78,9 @@ function Overview (): JSX.Element {
         platformName: (item.stereotype.platformName ??
                       item.stereotype.platform) ?? '',
         slotCount: item.slots,
-        rawData: item
+        rawData: item,
+        udid: (item.stereotype['appium:udid'] ?? item.stereotype['udid']) ?? ''
+        // udid: item.stereotype.udid
       }
       return slotStereotype
     })

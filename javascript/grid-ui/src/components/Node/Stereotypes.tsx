@@ -39,7 +39,10 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
               <OsLogo osName={slotStereotype.platformName} size={Size.XS} />
               <BrowserLogo browserName={slotStereotype.browserName} />
               <Typography variant='caption'>
-                {slotStereotype.browserVersion}
+                <strong>
+                  {slotStereotype.browserVersion.length > 0 ? slotStereotype.browserVersion : slotStereotype.platformName}
+                </strong>
+                {/* {slotStereotype.browserVersion} */}
               </Typography>
             </Grid>
           </Badge>
@@ -48,7 +51,14 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
     </Grid>
   )
 }
-//add slot name here
+//add slot label here
+{/* <Grid item marginBottom={0} marginRight={1}>
+  <Typography variant='caption'>
+    <strong>
+      {slotStereotype.udid.length > 0 ? slotStereotype.udid : 'X'}
+    </strong>
+  </Typography>
+</Grid> */}
 
 function Stereotypes (props) {
   const { stereotypes } = props

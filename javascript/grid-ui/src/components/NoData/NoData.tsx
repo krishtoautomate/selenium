@@ -42,7 +42,7 @@ function NoData (props) {
           >
             {message}
           </Typography>
-          <Typography
+          {/* <Typography
             align='center'
             color='textPrimary'
             variant='h4'
@@ -52,7 +52,7 @@ function NoData (props) {
               Help
             </Link>
             {' '}section.
-          </Typography>
+          </Typography> */}
         </Container>
       </Box>
     </Box>

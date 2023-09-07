@@ -39,20 +39,25 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
               <OsLogo osName={slotStereotype.platformName} size={Size.XS} />
               <BrowserLogo browserName={slotStereotype.browserName} />
               <Typography variant='caption'>
-                <strong>
+                {/* <strong>
                   {slotStereotype.browserVersion.length > 0 ? slotStereotype.browserVersion : slotStereotype.platformName}
-                </strong>
-                {/* {slotStereotype.browserVersion} */}
+                </strong> */}
+                {slotStereotype.browserVersion}
               </Typography>
             </Grid>
           </Badge>
         </Tooltip>
       </Grid>
       <Grid item marginBottom={0} marginRight={1}>
-        <Typography variant='center'>
-          <strong>
+        <Typography variant='caption'>
+          <Box>
+            <strong>
+              {slotStereotype.udid.length > 0 ? slotStereotype.platformName : '' }
+            </strong>
+            {'  '}
             {slotStereotype.udid.length > 0 ? slotStereotype.udid : ''}
-          </strong>
+
+          </Box>
         </Typography>
       </Grid>
 

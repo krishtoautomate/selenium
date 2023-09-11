@@ -95,7 +95,8 @@ const headCells: HeadCell[] = [
   { id: 'capabilities', numeric: false, label: 'Capabilities' },
   { id: 'startTime', numeric: false, label: 'Start time' },
   { id: 'sessionDurationMillis', numeric: false, label: 'Duration' },
-  { id: 'nodeUri', numeric: false, label: 'Node URI' }
+  { id: 'nodeUri', numeric: false, label: 'Node URI' },
+  { id: 'udid', numeric: false, label: 'udid' }
 ]
 
 interface EnhancedTableProps {
@@ -467,6 +468,9 @@ function RunningSessions (props) {
                           <TableCell align='left'>
                             {row.nodeUri}
                           </TableCell>
+                          <TableCell align='left'>
+                            {row.udid}
+                          </TableCell>
                         </TableRow>
                       )
                     })}
@@ -479,7 +483,7 @@ function RunningSessions (props) {
               </Table>
             </TableContainer>
             <TablePagination
-              rowsPerPageOptions={[5, 10, 15]}
+              rowsPerPageOptions={[5, 10, 15, 25, 50, 100]}
               component='div'
               count={rows.length}
               rowsPerPage={rowsPerPage}

@@ -28,6 +28,7 @@ interface SessionInfo {
   nodeUri: string
   sessionDurationMillis: string
   slot: SlotInfo
+  udid: string
 }
 
 export default SessionInfo

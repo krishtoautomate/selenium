@@ -64,14 +64,6 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
     </Grid>
   )
 }
-//add slot label here
-{/* <Grid item marginBottom={0} marginRight={1}>
-  <Typography variant='caption'>
-    <strong>
-      {slotStereotype.udid.length > 0 ? slotStereotype.udid : 'X'}
-    </strong>
-  </Typography>
-</Grid> */}
 
 function Stereotypes (props) {
   const { stereotypes } = props

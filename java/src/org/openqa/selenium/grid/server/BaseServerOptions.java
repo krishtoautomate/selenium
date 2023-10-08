@@ -109,7 +109,7 @@ public class BaseServerOptions {
   }
 
   public boolean getAllowCORS() {
-    return config.getBool(SERVER_SECTION, "allow-cors").orElse(false);
+    return config.getBool(SERVER_SECTION, "allow-cors").orElse(true);
   }
 
   public boolean getBindHost() {

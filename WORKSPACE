@@ -20,6 +20,7 @@ load("@apple_rules_lint//lint:setup.bzl", "lint_setup")
 # Add your linters here.
 lint_setup({
     "java-spotbugs": "//java:spotbugs-config",
+    "rust-rustfmt": "//rust:enable-rustfmt",
 })
 
 http_archive(
@@ -37,9 +38,9 @@ bazel_skylib_workspace()
 
 http_archive(
     name = "rules_python",
-    sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-    strip_prefix = "rules_python-0.24.0",
-    url = "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
+    sha256 = "5868e73107a8e85d8f323806e60cad7283f34b32163ea6ff1020cf27abef6036",
+    strip_prefix = "rules_python-0.25.0",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.25.0/rules_python-0.25.0.tar.gz",
 )
 
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_multi_toolchains")
@@ -61,10 +62,10 @@ python_register_multi_toolchains(
 )
 
 load("@python//:pip.bzl", "multi_pip_parse")
-load("@python//3.11:defs.bzl", interpreter_3_11 = "interpreter")
 load("@python//3.10:defs.bzl", interpreter_3_10 = "interpreter")
-load("@python//3.9:defs.bzl", interpreter_3_9 = "interpreter")
+load("@python//3.11:defs.bzl", interpreter_3_11 = "interpreter")
 load("@python//3.8:defs.bzl", interpreter_3_8 = "interpreter")
+load("@python//3.9:defs.bzl", interpreter_3_9 = "interpreter")
 
 multi_pip_parse(
     name = "py_dev_requirements",
@@ -165,17 +166,41 @@ load("@maven//:defs.bzl", "pinned_maven_install")
 pinned_maven_install()
 
 http_archive(
-    name = "d2l_rules_csharp",
-    sha256 = "c0152befb1fd0e08527b38e41ef00b6627f9f0c2be6f2d23a4950f41701fa48a",
-    strip_prefix = "rules_csharp-50e2f6c79e7a53e50b4518239b5ebcc61279759e",
-    urls = [
-        "https://github.com/Brightspace/rules_csharp/archive/50e2f6c79e7a53e50b4518239b5ebcc61279759e.tar.gz",
+    name = "rules_dotnet",
+    patch_args = ["-p1"],
+    patches = [
+        "//dotnet:0001-Include-more-of-the-SDK.patch",
+        "//dotnet:0002-Pass-through-information-about-location-of-the-nupkg.patch",
+        "//dotnet:0003-Make-Runfiles-library-compatible-with-net-standard-2-0.patch",
+        "//dotnet:0004-Ensure-data-runfiles-are-added-to-tests.patch",
+        "//dotnet:0005-Ensure-csharp_library-files-are-unique.patch",
     ],
+    sha256 = "f445400dac566eed9d7895aa0fb168a5453a07e5128dc1c4852cd9c537e0ca60",
+    strip_prefix = "rules_dotnet-0.10.7",
+    url = "https://github.com/bazelbuild/rules_dotnet/releases/download/v0.10.7/rules_dotnet-v0.10.7.tar.gz",
 )
 
-load("//dotnet:workspace.bzl", "selenium_register_dotnet")
+load(
+    "@rules_dotnet//dotnet:repositories.bzl",
+    "dotnet_register_toolchains",
+    "rules_dotnet_dependencies",
+)
 
-selenium_register_dotnet()
+rules_dotnet_dependencies()
+
+dotnet_register_toolchains("dotnet", "7.0.400")
+
+load("@rules_dotnet//dotnet:rules_dotnet_nuget_packages.bzl", "rules_dotnet_nuget_packages")
+
+rules_dotnet_nuget_packages()
+
+load("@rules_dotnet//dotnet:paket2bazel_dependencies.bzl", "paket2bazel_dependencies")
+
+paket2bazel_dependencies()
+
+load("//dotnet:paket.bzl", "paket")
+
+paket()
 
 http_archive(
     name = "rules_rust",
@@ -315,12 +340,12 @@ http_archive(
     url = "https://github.com/p0deje/rules_ruby/archive/9550503e1c1702375e87837d43eb137030edd28a.zip",
 )
 
-load("//rb:ruby_version.bzl", "RUBY_VERSION")
 load(
     "@rules_ruby//ruby:deps.bzl",
     "rb_bundle",
     "rb_register_toolchains",
 )
+load("//rb:ruby_version.bzl", "RUBY_VERSION")
 
 rb_register_toolchains(version = RUBY_VERSION)
 

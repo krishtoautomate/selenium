@@ -29,6 +29,7 @@ import java.net.ProxySelector;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient.Version;
 import java.net.http.HttpResponse.BodyHandler;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpTimeoutException;
@@ -150,6 +151,11 @@ public class JdkHttpClient implements HttpClient {
       builder.sslContext(sslContext);
     }
 
+    String version = config.version();
+    if (version != null) {
+      builder.version(Version.valueOf(version));
+    }
+
     this.client = builder.build();
   }
 
@@ -226,7 +232,6 @@ public class JdkHttpClient implements HttpClient {
                     LOG.log(
                         Level.FINE, error, () -> "An error has occurred: " + error.getMessage());
                     listener.onError(error);
-                    webSocket.request(1);
                   }
                 });
 

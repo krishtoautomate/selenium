@@ -39,28 +39,33 @@ class SeleniumManager:
         """Determines the path of the correct Selenium Manager binary.
 
         :Returns: The Selenium Manager executable location
+
+        :Raises: WebDriverException if the platform is unsupported
         """
 
-        if os.getenv("SE_MANAGER_PATH"):
-            path = os.getenv("SE_MANAGER_PATH")
-        else:
-            platform = sys.platform
+        if (path := os.getenv("SE_MANAGER_PATH")) is not None:
+            return Path(path)
 
-            dirs = {
-                "darwin": "macos",
-                "win32": "windows",
-                "cygwin": "windows",
-            }
+        dirs = {
+            "darwin": "macos",
+            "win32": "windows",
+            "cygwin": "windows",
+            "linux": "linux",
+            "freebsd": "linux",
+            "openbsd": "linux",
+        }
 
-            directory = dirs.get(platform) if dirs.get(platform) else platform
-            file = "selenium-manager.exe" if directory == "windows" else "selenium-manager"
+        directory = dirs.get(sys.platform)
+        if directory is None:
+            raise WebDriverException(f"Unsupported platform: {sys.platform}")
 
-            path = Path(__file__).parent.joinpath(directory, file)
+        if sys.platform in ["freebsd", "openbsd"]:
+            logger.warning("Selenium Manager binary may not be compatible with %s; verify settings", sys.platform)
 
-        if not path.is_file() and os.environ["CONDA_PREFIX"]:
-            # conda has a separate package selenium-manager, installs in bin
-            path = Path(os.path.join(os.environ["CONDA_PREFIX"], "bin", file))
-            logger.debug("Conda environment detected, using `%s`", path)
+        file = "selenium-manager.exe" if directory == "windows" else "selenium-manager"
+
+        path = Path(__file__).parent.joinpath(directory, file)
+
         if not path.is_file():
             raise WebDriverException(f"Unable to obtain working Selenium Manager binary; {path}")
 
@@ -101,7 +106,7 @@ class SeleniumManager:
         driver_path = output["driver_path"]
         logger.debug("Using driver at: %s", driver_path)
 
-        if hasattr(options.__class__, "binary_location"):
+        if hasattr(options.__class__, "binary_location") and browser_path:
             options.binary_location = browser_path
             options.browser_version = None  # if we have the binary location we no longer need the version
 

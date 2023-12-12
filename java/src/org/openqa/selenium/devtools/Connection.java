@@ -22,12 +22,15 @@ import static org.openqa.selenium.internal.Debug.getDebugLogLevel;
 import static org.openqa.selenium.json.Json.MAP_TYPE;
 import static org.openqa.selenium.remote.http.HttpMethod.GET;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import java.io.Closeable;
 import java.io.StringReader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +53,7 @@ import org.openqa.selenium.internal.Require;
 import org.openqa.selenium.json.Json;
 import org.openqa.selenium.json.JsonInput;
 import org.openqa.selenium.json.JsonOutput;
+import org.openqa.selenium.remote.http.ClientConfig;
 import org.openqa.selenium.remote.http.HttpClient;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.openqa.selenium.remote.http.WebSocket;
@@ -70,8 +74,8 @@ public class Connection implements Closeable {
   private final Map<Long, Consumer<Either<Throwable, JsonInput>>> methodCallbacks =
       new ConcurrentHashMap<>();
   private final ReadWriteLock callbacksLock = new ReentrantReadWriteLock(true);
-  private final Multimap<Event<?>, Consumer<?>> eventCallbacks = HashMultimap.create();
-  private final HttpClient client;
+  private final Map<Event<?>, List<Consumer<?>>> eventCallbacks = new HashMap<>();
+  private HttpClient client;
   private final String url;
   private final AtomicBoolean isClosed;
 
@@ -89,6 +93,14 @@ public class Connection implements Closeable {
   }
 
   void reopen() {
+    HttpClient.Factory clientFactory = HttpClient.Factory.createDefault();
+    ClientConfig wsConfig = null;
+    try {
+      wsConfig = ClientConfig.defaultConfig().baseUri(new URI(this.url));
+    } catch (URISyntaxException e) {
+      LOG.warning(e.getMessage());
+    }
+    this.client = clientFactory.createClient(wsConfig);
     this.socket = this.client.openSocket(new HttpRequest(GET, url), new Listener());
   }
 
@@ -144,7 +156,7 @@ public class Connection implements Closeable {
               }));
     }
 
-    ImmutableMap.Builder<String, Object> serialized = ImmutableMap.builder();
+    Map<String, Object> serialized = new LinkedHashMap<>();
     serialized.put("id", id);
     serialized.put("method", command.getMethod());
     serialized.put("params", command.getParams());
@@ -154,7 +166,7 @@ public class Connection implements Closeable {
 
     StringBuilder json = new StringBuilder();
     try (JsonOutput out = JSON.newOutput(json).writeClassName(false)) {
-      out.write(serialized.build());
+      out.write(Map.copyOf(serialized));
     }
     LOG.log(getDebugLogLevel(), "-> {0}", json);
     socket.sendText(json);
@@ -191,7 +203,7 @@ public class Connection implements Closeable {
     Lock lock = callbacksLock.writeLock();
     lock.lock();
     try {
-      eventCallbacks.put(event, handler);
+      eventCallbacks.computeIfAbsent(event, (key) -> new ArrayList<>()).add(handler);
     } finally {
       lock.unlock();
     }
@@ -271,7 +283,7 @@ public class Connection implements Closeable {
       LOG.log(
           getDebugLogLevel(),
           "Method {0} called with {1} callbacks available",
-          new Object[] {raw.get("method"), eventCallbacks.keySet().size()});
+          new Object[] {raw.get("method"), eventCallbacks.size()});
       Lock lock = callbacksLock.readLock();
       // A waiting writer will block a reader to enter the lock, even if there are currently other
       // readers holding the lock. TryLock will bypass the waiting writers and acquire the read
@@ -285,25 +297,27 @@ public class Connection implements Closeable {
       }
       try {
         // TODO: Also only decode once.
-        eventCallbacks.keySet().stream()
+        eventCallbacks.entrySet().stream()
             .peek(
                 event ->
                     LOG.log(
                         getDebugLogLevel(),
                         "Matching {0} with {1}",
-                        new Object[] {raw.get("method"), event.getMethod()}))
-            .filter(event -> raw.get("method").equals(event.getMethod()))
+                        new Object[] {raw.get("method"), event.getKey().getMethod()}))
+            .filter(event -> raw.get("method").equals(event.getKey().getMethod()))
             .forEach(
                 event -> {
                   // TODO: This is grossly inefficient. I apologise, and we should fix this.
                   try (StringReader reader = new StringReader(asString);
                       JsonInput input = JSON.newInput(reader)) {
-                    Object value = null;
+                    boolean hasParams = false;
+                    Object params = null;
                     input.beginObject();
                     while (input.hasNext()) {
                       switch (input.nextName()) {
                         case "params":
-                          value = event.getMapper().apply(input);
+                          hasParams = true;
+                          params = event.getKey().getMapper().apply(input);
                           break;
 
                         default:
@@ -313,21 +327,22 @@ public class Connection implements Closeable {
                     }
                     input.endObject();
 
-                    if (value == null) {
-                      // Do nothing.
+                    if (!hasParams) {
+                      LOG.fine(
+                          "suppressed event '"
+                              + event.getKey().getMethod()
+                              + "', no params in input");
                       return;
                     }
 
-                    final Object finalValue = value;
-
-                    for (Consumer<?> action : eventCallbacks.get(event)) {
+                    for (Consumer<?> action : event.getValue()) {
                       @SuppressWarnings("unchecked")
                       Consumer<Object> obj = (Consumer<Object>) action;
                       LOG.log(
                           getDebugLogLevel(),
                           "Calling callback for {0} using {1} being passed {2}",
-                          new Object[] {event, obj, finalValue});
-                      obj.accept(finalValue);
+                          new Object[] {event.getKey(), obj, params});
+                      obj.accept(params);
                     }
                   }
                 });

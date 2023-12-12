@@ -18,6 +18,7 @@
 
 using Newtonsoft.Json;
 using OpenQA.Selenium.Internal;
+using OpenQA.Selenium.Internal.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -34,6 +35,8 @@ namespace OpenQA.Selenium
     /// </summary>
     public static class SeleniumManager
     {
+        private static readonly ILogger _logger = Log.GetLogger(typeof(SeleniumManager));
+
         private static readonly string BinaryFullPath = Environment.GetEnvironmentVariable("SE_MANAGER_PATH");
 
         static SeleniumManager()
@@ -104,18 +107,20 @@ namespace OpenQA.Selenium
             }
 
             Dictionary<string, object> output = RunCommand(BinaryFullPath, argsBuilder.ToString());
-            string browserPath = (string)output["browser_path"];
-            string driverPath = (string)output["driver_path"];
 
             try
             {
-                options.BinaryLocation = browserPath;
+                options.BinaryLocation = (string)output["browser_path"] == "" ? null : (string)output["browser_path"];
                 options.BrowserVersion = null;
             }
             catch (NotImplementedException)
             {
                 // Cannot set Browser Location for this driver and that is ok
             }
+
+            var driverPath = (string)output["driver_path"];
+
+            _logger.Trace($"Driver path: {driverPath}");
 
             return driverPath;
         }

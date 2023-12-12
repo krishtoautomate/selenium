@@ -33,7 +33,7 @@ use Color::{Blue, Cyan, Green, Red, Yellow};
 pub const DRIVER_PATH: &str = "Driver path: ";
 pub const BROWSER_PATH: &str = "Browser path: ";
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 enum OutputType {
     #[default]
     Logger,
@@ -218,7 +218,9 @@ impl Logger {
         let json_output = &self.json.borrow();
         let json = json_output.deref();
         if !json.logs.is_empty() {
-            print!("{}", serde_json::to_string_pretty(json.deref()).unwrap());
+            print!("{}", serde_json::to_string_pretty(json).unwrap());
+        } else if self.output == OutputType::Json {
+            panic!("JSON output has been specified, but no entries have been collected")
         }
     }
 }

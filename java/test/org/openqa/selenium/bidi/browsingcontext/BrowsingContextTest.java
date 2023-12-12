@@ -20,6 +20,8 @@ package org.openqa.selenium.bidi.browsingcontext;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.openqa.selenium.support.ui.ExpectedConditions.alertIsPresent;
+import static org.openqa.selenium.support.ui.ExpectedConditions.titleIs;
+import static org.openqa.selenium.support.ui.ExpectedConditions.visibilityOfElementLocated;
 import static org.openqa.selenium.testing.Safely.safelyCall;
 import static org.openqa.selenium.testing.drivers.Browser.CHROME;
 import static org.openqa.selenium.testing.drivers.Browser.EDGE;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Rectangle;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WindowType;
@@ -40,6 +43,7 @@ import org.openqa.selenium.bidi.BiDiException;
 import org.openqa.selenium.environment.webserver.AppServer;
 import org.openqa.selenium.environment.webserver.NettyAppServer;
 import org.openqa.selenium.environment.webserver.Page;
+import org.openqa.selenium.print.PrintOptions;
 import org.openqa.selenium.remote.RemoteWebElement;
 import org.openqa.selenium.testing.JupiterTestBase;
 import org.openqa.selenium.testing.NotYetImplemented;
@@ -204,6 +208,22 @@ class BrowsingContextTest extends JupiterTestBase {
     tab2.close();
 
     assertThatExceptionOfType(BiDiException.class).isThrownBy(tab2::getTree);
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  void canActivateABrowsingContext() {
+    BrowsingContext window1 = new BrowsingContext(driver, driver.getWindowHandle());
+    // 2nd window is focused
+    BrowsingContext window2 = new BrowsingContext(driver, WindowType.WINDOW);
+
+    // We did not switch the driver, so we are running the script to check focus on 1st window
+    assertThat(getDocumentFocus()).isFalse();
+
+    window1.activate();
+
+    assertThat(getDocumentFocus()).isTrue();
   }
 
   // TODO: Add a test for closing the last tab once the behavior is finalized
@@ -418,6 +438,103 @@ class BrowsingContextTest extends JupiterTestBase {
     assertThat(screenshot.length()).isPositive();
   }
 
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  void canSetViewport() {
+    BrowsingContext browsingContext = new BrowsingContext(driver, driver.getWindowHandle());
+    driver.get(appServer.whereIs("formPage.html"));
+
+    browsingContext.setViewport(250, 300);
+
+    List<Long> newViewportSize =
+        (List<Long>)
+            ((JavascriptExecutor) driver)
+                .executeScript("return [window.innerWidth, window.innerHeight];");
+
+    assertThat(newViewportSize.get(0)).isEqualTo(250);
+    assertThat(newViewportSize.get(1)).isEqualTo(300);
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  @NotYetImplemented(CHROME)
+  @NotYetImplemented(FIREFOX)
+  void canSetViewportWithDevicePixelRatio() {
+    BrowsingContext browsingContext = new BrowsingContext(driver, driver.getWindowHandle());
+    driver.get(appServer.whereIs("formPage.html"));
+
+    browsingContext.setViewport(250, 300, 5);
+
+    List<Long> newViewportSize =
+        (List<Long>)
+            ((JavascriptExecutor) driver)
+                .executeScript("return [window.innerWidth, window.innerHeight];");
+
+    assertThat(newViewportSize.get(0)).isEqualTo(250);
+    assertThat(newViewportSize.get(1)).isEqualTo(300);
+
+    Long newDevicePixelRatio =
+        (Long) ((JavascriptExecutor) driver).executeScript("return window.devicePixelRatio");
+
+    assertThat(newDevicePixelRatio).isEqualTo(5);
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  void canPrintPage() {
+    BrowsingContext browsingContext = new BrowsingContext(driver, driver.getWindowHandle());
+
+    driver.get(appServer.whereIs("formPage.html"));
+    PrintOptions printOptions = new PrintOptions();
+
+    String printPage = browsingContext.print(printOptions);
+
+    assertThat(printPage.length()).isPositive();
+    // Comparing expected PDF is a hard problem.
+    // As long as we are sending the parameters correctly it should be fine.
+    // Trusting the browsers to do the right thing.
+    // Hence, just checking if the response is base64 encoded string.
+    assertThat(printPage).contains("JVBER");
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  @NotYetImplemented(CHROME)
+  @NotYetImplemented(FIREFOX)
+  public void canNavigateBackInTheBrowserHistory() {
+    BrowsingContext browsingContext = new BrowsingContext(driver, driver.getWindowHandle());
+    browsingContext.navigate(pages.formPage, ReadinessState.COMPLETE);
+
+    wait.until(visibilityOfElementLocated(By.id("imageButton"))).submit();
+    wait.until(titleIs("We Arrive Here"));
+
+    browsingContext.back();
+    wait.until(titleIs("We Leave From Here"));
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  @NotYetImplemented(CHROME)
+  @NotYetImplemented(FIREFOX)
+  void canNavigateForwardInTheBrowserHistory() {
+    BrowsingContext browsingContext = new BrowsingContext(driver, driver.getWindowHandle());
+    browsingContext.navigate(pages.formPage, ReadinessState.COMPLETE);
+
+    wait.until(visibilityOfElementLocated(By.id("imageButton"))).submit();
+    wait.until(titleIs("We Arrive Here"));
+
+    browsingContext.back();
+    wait.until(titleIs("We Leave From Here"));
+
+    browsingContext.forward();
+    wait.until(titleIs("We Arrive Here"));
+  }
+
   private String alertPage() {
     return appServer.create(
         new Page()
@@ -440,6 +557,10 @@ class BrowsingContextTest extends JupiterTestBase {
             .withBody(
                 "<button id='alert' onclick='myFunction()'>Try it</button>",
                 "<p id=\"result\"></p>"));
+  }
+
+  private boolean getDocumentFocus() {
+    return (boolean) ((JavascriptExecutor) driver).executeScript("return document.hasFocus();");
   }
 
   @AfterEach

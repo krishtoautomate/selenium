@@ -22,6 +22,7 @@ interface Capabilities {
   platformName: string
   version: string
   udid: string
+  platformVersion: string
 }
 
 export default Capabilities

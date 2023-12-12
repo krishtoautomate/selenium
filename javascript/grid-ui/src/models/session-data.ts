@@ -34,6 +34,7 @@ interface SessionData {
   vnc: string
   name: string
   udid: string
+  platformVersion: string
 }
 
 export function createSessionData (
@@ -65,6 +66,7 @@ export function createSessionData (
   }
   const name: string = parsed['se:name'] ?? id
   const udid: string = (parsed['appium:udid'] ?? parsed['udid']) ?? '';
+  const platformVersion: string = (parsed['appium:platformVersion'] ?? parsed['platformVersion']) ?? '';
   return {
     id,
     capabilities,
@@ -79,7 +81,8 @@ export function createSessionData (
     slot,
     vnc,
     name,
-    udid
+    udid,
+    platformVersion
   }
 }
 

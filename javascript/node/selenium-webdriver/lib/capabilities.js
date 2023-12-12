@@ -174,6 +174,8 @@ const Capability = {
    */
   PLATFORM_NAME: 'platformName',
 
+  PLATFORM_VERSION: 'appium:platformVersion',
+
   /** Identifies the device udid. */
   UDID: 'appium:udid',
 

@@ -29,6 +29,7 @@ interface SessionInfo {
   sessionDurationMillis: string
   slot: SlotInfo
   udid: string
+  platformVersion: string
 }
 
 export default SessionInfo

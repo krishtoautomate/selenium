@@ -35,7 +35,8 @@ const slotStereotype: StereotypeInfo = {
   slotCount: 12,
   rawData: ['stereotype: {"browserName": "chrome"}'],
   platformName: 'macos',
-  udid: 'xxx'
+  udid: 'xxx',
+  platformVersion: 'xx.xx'
 }
 
 const node: NodeInfo = {

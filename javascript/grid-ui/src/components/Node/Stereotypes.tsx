@@ -42,7 +42,9 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
                 {/* <strong>
                   {slotStereotype.browserVersion.length > 0 ? slotStereotype.browserVersion : slotStereotype.platformName}
                 </strong> */}
-                {slotStereotype.platformVersion.length > 0 ? slotStereotype.platformVersion : slotStereotype.browserVersion}
+                {/* {slotStereotype.platformVersion.length > 0 ? slotStereotype.platformVersion : slotStereotype.browserVersion} */}
+
+                {slotStereotype.browserVersion}
               </Typography>
             </Grid>
           </Badge>

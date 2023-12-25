@@ -74,12 +74,13 @@ function Overview (): JSX.Element {
       const slotStereotype: StereotypeInfo = {
         browserName: item.stereotype.browserName ?? '',
         browserVersion: browserVersion(
-          item.stereotype.browserVersion ?? item.stereotype.version),
+          item.stereotype.browserVersion ?? item.stereotype.version ?? (item.stereotype['appium:platformVersion'] ?? item.stereotype['platformVersion'])),
         platformName: (item.stereotype.platformName ??
                       item.stereotype.platform) ?? '',
         slotCount: item.slots,
         rawData: item,
-        udid: (item.stereotype['appium:udid'] ?? item.stereotype['udid']) ?? ''
+        udid: (item.stereotype['appium:udid'] ?? item.stereotype['udid']) ?? '',
+        platformVersion: (item.stereotype['appium:platformVersion'] ?? item.stereotype['platformVersion']) ?? ''
         // udid: item.stereotype.udid
       }
       return slotStereotype

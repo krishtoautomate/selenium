@@ -65,6 +65,7 @@ export function createSessionData (
   }
   const name: string = parsed['se:name'] ?? id
   const udid: string = (parsed['appium:udid'] ?? parsed['udid']) ?? '';
+  const platformVersion: string = (parsed['appium:platformVersion'] ?? parsed['platformVersion']) ?? '';
   return {
     id,
     capabilities,

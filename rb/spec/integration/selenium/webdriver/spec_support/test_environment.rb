@@ -57,8 +57,8 @@ module Selenium
           end
         end
 
-        def driver_instance(**opts, &block)
-          @driver_instance || create_driver!(**opts, &block)
+        def driver_instance(...)
+          @driver_instance || create_driver!(...)
         end
 
         def reset_driver!(time: 0, **opts, &block)
@@ -91,7 +91,7 @@ module Selenium
             log_level: WebDriver.logger.debug? && 'FINE',
             background: true,
             timeout: 60,
-            args: %w[--selenium-manager true]
+            args: %w[--selenium-manager true --enable-managed-downloads true]
           )
         end
 
@@ -142,7 +142,7 @@ module Selenium
         def create_driver!(listener: nil, **opts, &block)
           check_for_previous_error
 
-          method = "#{driver}_driver".to_sym
+          method = :"#{driver}_driver"
           instance = if private_methods.include?(method)
                        send(method, listener: listener, options: build_options(**opts))
                      else
@@ -167,7 +167,7 @@ module Selenium
         private
 
         def build_options(**opts)
-          options_method = "#{browser}_options".to_sym
+          options_method = :"#{browser}_options"
           if private_methods.include?(options_method)
             send(options_method, **opts)
           else
@@ -240,19 +240,19 @@ module Selenium
         def chrome_options(args: [], **opts)
           opts[:binary] ||= ENV['CHROME_BINARY'] if ENV.key?('CHROME_BINARY')
           args << '--headless=chrome' if ENV['HEADLESS']
-          WebDriver::Options.chrome(args: args, **opts)
+          WebDriver::Options.chrome(browser_version: 'stable', args: args, **opts)
         end
 
         def edge_options(args: [], **opts)
           opts[:binary] ||= ENV['EDGE_BINARY'] if ENV.key?('EDGE_BINARY')
           args << '--headless=chrome' if ENV['HEADLESS']
-          WebDriver::Options.edge(args: args, **opts)
+          WebDriver::Options.edge(browser_version: 'stable', args: args, **opts)
         end
 
         def firefox_options(args: [], **opts)
           opts[:binary] ||= ENV['FIREFOX_BINARY'] if ENV.key?('FIREFOX_BINARY')
           args << '--headless' if ENV['HEADLESS']
-          WebDriver::Options.firefox(args: args, **opts)
+          WebDriver::Options.firefox(browser_version: 'stable', args: args, **opts)
         end
 
         def ie_options(**opts)

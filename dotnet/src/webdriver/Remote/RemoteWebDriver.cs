@@ -19,9 +19,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Threading.Tasks;
 using OpenQA.Selenium.DevTools;
-using OpenQA.Selenium.Internal;
 
 namespace OpenQA.Selenium.Remote
 {
@@ -58,7 +60,7 @@ namespace OpenQA.Selenium.Remote
     /// }
     /// </code>
     /// </example>
-    public class RemoteWebDriver : WebDriver, IDevTools
+    public class RemoteWebDriver : WebDriver, IDevTools, IHasDownloads
     {
         /// <summary>
         /// The name of the Selenium grid remote DevTools end point capability.
@@ -129,7 +131,7 @@ namespace OpenQA.Selenium.Remote
         /// <param name="commandExecutor">An <see cref="ICommandExecutor"/> object which executes commands for the driver.</param>
         /// <param name="desiredCapabilities">An <see cref="ICapabilities"/> object containing the desired capabilities of the browser.</param>
         public RemoteWebDriver(ICommandExecutor commandExecutor, ICapabilities desiredCapabilities)
-            :base(commandExecutor, desiredCapabilities)
+            : base(commandExecutor, desiredCapabilities)
         {
         }
 
@@ -466,6 +468,75 @@ namespace OpenQA.Selenium.Remote
             }
 
             return this.devToolsSession;
+        }
+
+        /// <summary>
+        /// Retrieves the downloadable files.
+        /// </summary>
+        /// <returns>A read-only list of file names available for download.</returns>
+        public IReadOnlyList<string> GetDownloadableFiles()
+        {
+            var enableDownloads = this.Capabilities.GetCapability(CapabilityType.EnableDownloads);
+            if (enableDownloads == null || !(bool)enableDownloads)
+            {
+                throw new WebDriverException("You must enable downloads in order to work with downloadable files.");
+            }
+
+            Response commandResponse = this.Execute(DriverCommand.GetDownloadableFiles, null);
+            Dictionary<string, object> value = (Dictionary<string, object>)commandResponse.Value;
+            object[] namesArray = (object[])value["names"];
+            return namesArray.Select(obj => obj.ToString()).ToList();
+        }
+
+        /// <summary>
+        /// Downloads a file with the specified file name.
+        /// </summary>
+        /// <param name="fileName">the name of the file to be downloaded</param>
+        public void DownloadFile(string fileName, string targetDirectory)
+        {
+            var enableDownloads = this.Capabilities.GetCapability(CapabilityType.EnableDownloads);
+            if (enableDownloads == null || !(bool)enableDownloads)
+            {
+                throw new WebDriverException("You must enable downloads in order to work with downloadable files.");
+            }
+
+            Dictionary<string, object> parameters = new Dictionary<string, object>
+            {
+                { "name", fileName }
+            };
+
+            Response commandResponse = this.Execute(DriverCommand.DownloadFile, parameters);
+            string contents = ((Dictionary<string, object>)commandResponse.Value)["contents"].ToString();
+            byte[] fileData = Convert.FromBase64String(contents);
+
+            Directory.CreateDirectory(targetDirectory);
+
+            using (var memoryReader = new MemoryStream(fileData))
+            {
+                using (var zipArchive = new ZipArchive(memoryReader, ZipArchiveMode.Read))
+                {
+                    foreach (ZipArchiveEntry entry in zipArchive.Entries)
+                    {
+                        string destinationPath = Path.Combine(targetDirectory, entry.FullName);
+
+                        entry.ExtractToFile(destinationPath);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Deletes all downloadable files.
+        /// </summary>
+        public void DeleteDownloadableFiles()
+        {
+            var enableDownloads = this.Capabilities.GetCapability(CapabilityType.EnableDownloads);
+            if (enableDownloads == null || !(bool)enableDownloads)
+            {
+                throw new WebDriverException("You must enable downloads in order to work with downloadable files.");
+            }
+
+            this.Execute(DriverCommand.DeleteDownloadableFiles, null);
         }
 
         /// <summary>

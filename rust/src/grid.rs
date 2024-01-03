@@ -16,22 +16,22 @@
 // under the License.
 
 use crate::config::ManagerConfig;
-use reqwest::Client;
-use std::collections::HashMap;
-use std::error::Error;
-use std::path::PathBuf;
-
-use crate::files::BrowserPath;
-
 use crate::downloads::parse_json_from_url;
-use crate::{
-    create_http_client, parse_version, Logger, SeleniumManager, OFFLINE_REQUEST_ERR_MSG, SNAPSHOT,
-};
-
+use crate::files::BrowserPath;
 use crate::metadata::{
     create_driver_metadata, get_driver_version_from_metadata, get_metadata, write_metadata,
 };
 use crate::mirror::{Assets, SeleniumRelease, MIRROR_URL};
+use crate::{
+    create_http_client, parse_version, Logger, SeleniumManager, OFFLINE_REQUEST_ERR_MSG, SNAPSHOT,
+};
+use anyhow::anyhow;
+use anyhow::Error;
+use reqwest::Client;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 
 pub const GRID_NAME: &str = "grid";
 const GRID_RELEASE: &str = "selenium-server";
@@ -47,23 +47,30 @@ pub struct GridManager {
     pub config: ManagerConfig,
     pub http_client: Client,
     pub log: Logger,
+    pub tx: Sender<String>,
+    pub rx: Receiver<String>,
+    pub download_browser: bool,
     pub driver_url: Option<String>,
 }
 
 impl GridManager {
-    pub fn new(driver_version: String) -> Result<Box<Self>, Box<dyn Error>> {
+    pub fn new(driver_version: String) -> Result<Box<Self>, Error> {
         let browser_name = GRID_NAME;
         let driver_name = GRID_RELEASE;
         let mut config = ManagerConfig::default(browser_name, driver_name);
         config.driver_version = driver_version;
         let default_timeout = config.timeout.to_owned();
         let default_proxy = &config.proxy;
+        let (tx, rx): (Sender<String>, Receiver<String>) = mpsc::channel();
         Ok(Box::new(GridManager {
             browser_name,
             driver_name,
             http_client: create_http_client(default_timeout, default_proxy)?,
             config,
             log: Logger::new(),
+            tx,
+            rx,
+            download_browser: false,
             driver_url: None,
         }))
     }
@@ -72,6 +79,10 @@ impl GridManager {
 impl SeleniumManager for GridManager {
     fn get_browser_name(&self) -> &str {
         self.browser_name
+    }
+
+    fn get_browser_names_in_path(&self) -> Vec<&str> {
+        vec![self.get_browser_name()]
     }
 
     fn get_http_client(&self) -> &Client {
@@ -86,7 +97,7 @@ impl SeleniumManager for GridManager {
         HashMap::new()
     }
 
-    fn discover_browser_version(&mut self) -> Result<Option<String>, Box<dyn Error>> {
+    fn discover_browser_version(&mut self) -> Result<Option<String>, Error> {
         Ok(None)
     }
 
@@ -94,10 +105,11 @@ impl SeleniumManager for GridManager {
         self.driver_name
     }
 
-    fn request_driver_version(&mut self) -> Result<String, Box<dyn Error>> {
+    fn request_driver_version(&mut self) -> Result<String, Error> {
         let major_browser_version_binding = self.get_major_browser_version();
         let major_browser_version = major_browser_version_binding.as_str();
-        let mut metadata = get_metadata(self.get_logger(), self.get_cache_path()?);
+        let cache_path = self.get_cache_path()?;
+        let mut metadata = get_metadata(self.get_logger(), &cache_path);
 
         match get_driver_version_from_metadata(
             &metadata.drivers,
@@ -116,7 +128,7 @@ impl SeleniumManager for GridManager {
 
                 let selenium_releases = parse_json_from_url::<Vec<SeleniumRelease>>(
                     self.get_http_client(),
-                    MIRROR_URL.to_string(),
+                    MIRROR_URL,
                 )?;
 
                 let filtered_releases: Vec<SeleniumRelease> = selenium_releases
@@ -156,22 +168,25 @@ impl SeleniumManager for GridManager {
                             &driver_version,
                             driver_ttl,
                         ));
-                        write_metadata(&metadata, self.get_logger(), self.get_cache_path()?);
+                        write_metadata(&metadata, self.get_logger(), cache_path);
                     }
 
                     Ok(driver_version)
                 } else {
-                    Err(format!("{} release not available", self.get_driver_name()).into())
+                    Err(anyhow!(format!(
+                        "{} release not available",
+                        self.get_driver_name()
+                    )))
                 }
             }
         }
     }
 
-    fn request_browser_version(&mut self) -> Result<Option<String>, Box<dyn Error>> {
+    fn request_browser_version(&mut self) -> Result<Option<String>, Error> {
         Ok(None)
     }
 
-    fn get_driver_url(&mut self) -> Result<String, Box<dyn Error>> {
+    fn get_driver_url(&mut self) -> Result<String, Error> {
         if self.driver_url.is_some() {
             return Ok(self.driver_url.as_ref().unwrap().to_string());
         }
@@ -179,7 +194,7 @@ impl SeleniumManager for GridManager {
         let release_version = self.get_selenium_release_version()?;
         Ok(format!(
             "{}download/{}/{}-{}.{}",
-            DRIVER_URL,
+            self.get_driver_mirror_url_or_default(DRIVER_URL),
             release_version,
             GRID_RELEASE,
             self.get_driver_version(),
@@ -187,12 +202,13 @@ impl SeleniumManager for GridManager {
         ))
     }
 
-    fn get_driver_path_in_cache(&self) -> Result<PathBuf, Box<dyn Error>> {
+    fn get_driver_path_in_cache(&self) -> Result<PathBuf, Error> {
         let browser_name = self.get_browser_name();
         let driver_name = self.get_driver_name();
         let driver_version = self.get_driver_version();
         Ok(self
             .get_cache_path()?
+            .unwrap_or_default()
             .join(browser_name)
             .join(driver_version)
             .join(format!("{driver_name}-{driver_version}.{GRID_EXTENSION}")))
@@ -218,19 +234,56 @@ impl SeleniumManager for GridManager {
         self.log = log;
     }
 
-    fn download_browser(&mut self) -> Result<Option<PathBuf>, Box<dyn Error>> {
-        Ok(None)
+    fn get_sender(&self) -> &Sender<String> {
+        &self.tx
+    }
+
+    fn get_receiver(&self) -> &Receiver<String> {
+        &self.rx
     }
 
     fn get_platform_label(&self) -> &str {
         ""
     }
 
-    fn request_latest_browser_version_from_online(&mut self) -> Result<String, Box<dyn Error>> {
+    fn request_latest_browser_version_from_online(
+        &mut self,
+        _browser_version: &str,
+    ) -> Result<String, Error> {
         self.unavailable_download()
     }
 
-    fn request_fixed_browser_version_from_online(&mut self) -> Result<String, Box<dyn Error>> {
+    fn request_fixed_browser_version_from_online(
+        &mut self,
+        _browser_version: &str,
+    ) -> Result<String, Error> {
         self.unavailable_download()
+    }
+
+    fn get_min_browser_version_for_download(&self) -> Result<i32, Error> {
+        self.unavailable_download()
+    }
+
+    fn get_browser_binary_path(&mut self, _browser_version: &str) -> Result<PathBuf, Error> {
+        self.unavailable_download()
+    }
+
+    fn get_browser_url_for_download(&mut self, _browser_version: &str) -> Result<String, Error> {
+        self.unavailable_download()
+    }
+
+    fn get_browser_label_for_download(
+        &self,
+        _browser_version: &str,
+    ) -> Result<Option<&str>, Error> {
+        self.unavailable_download()
+    }
+
+    fn is_download_browser(&self) -> bool {
+        self.download_browser
+    }
+
+    fn set_download_browser(&mut self, download_browser: bool) {
+        self.download_browser = download_browser;
     }
 }

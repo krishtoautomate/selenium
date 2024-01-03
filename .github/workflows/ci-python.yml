@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
@@ -77,34 +77,9 @@ jobs:
         env:
           TOXENV: mypy
 
-  unit-tests:
-    name: Unit Tests
-    needs: build
-    uses: ./.github/workflows/bazel.yml
-    with:
-      name: Unit Tests
-      cache-key: py-unit
-      run: bazel test //py:unit
-
-  browser-tests:
-    name: Browser Tests
-    needs: unit-tests
-    uses: ./.github/workflows/bazel.yml
-    strategy:
-      fail-fast: false
-      matrix:
-        browser:
-          - chrome
-          - firefox
-    with:
-      name: Integration Tests (${{ matrix.browser }})
-      browser: ${{ matrix.browser }}
-      cache-key: py-${{ matrix.browser }}
-      run: bazel test --flaky_test_attempts 3 //py:test-${{ matrix.browser }}
-
   remote-tests:
     name: Remote Tests
-    needs: unit-tests
+    needs: build
     uses: ./.github/workflows/bazel.yml
     with:
       name: Integration Tests (remote)

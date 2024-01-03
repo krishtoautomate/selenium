@@ -22,10 +22,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.logging.Level.SEVERE;
 import static org.openqa.selenium.remote.CapabilityType.PLATFORM_NAME;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -51,8 +51,8 @@ import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.HasCapabilities;
+import org.openqa.selenium.HasDownloads;
 import org.openqa.selenium.ImmutableCapabilities;
-import org.openqa.selenium.JavascriptException;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.NoAlertPresentException;
@@ -63,11 +63,9 @@ import org.openqa.selenium.Pdf;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.Point;
 import org.openqa.selenium.PrintsPage;
-import org.openqa.selenium.ScriptKey;
 import org.openqa.selenium.SearchContext;
 import org.openqa.selenium.SessionNotCreatedException;
 import org.openqa.selenium.TakesScreenshot;
-import org.openqa.selenium.UnpinnedScriptKey;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
@@ -82,7 +80,7 @@ import org.openqa.selenium.interactions.Interactive;
 import org.openqa.selenium.interactions.Sequence;
 import org.openqa.selenium.internal.Debug;
 import org.openqa.selenium.internal.Require;
-import org.openqa.selenium.json.TypeToken;
+import org.openqa.selenium.io.Zip;
 import org.openqa.selenium.logging.LocalLogs;
 import org.openqa.selenium.logging.LoggingHandler;
 import org.openqa.selenium.logging.Logs;
@@ -105,6 +103,7 @@ public class RemoteWebDriver
     implements WebDriver,
         JavascriptExecutor,
         HasCapabilities,
+        HasDownloads,
         HasFederatedCredentialManagement,
         HasVirtualAuthenticator,
         Interactive,
@@ -208,9 +207,7 @@ public class RemoteWebDriver
     converter = new JsonToWebElementConverter(this);
     executeMethod = new RemoteExecuteMethod(this);
 
-    ImmutableSet.Builder<String> builder = new ImmutableSet.Builder<>();
-
-    Set<String> logTypesToInclude = builder.build();
+    Set<String> logTypesToInclude = Set.of();
 
     LocalLogs performanceLogger = LocalLogs.getStoringLoggerInstance(logTypesToInclude);
     LocalLogs clientLogs =
@@ -259,7 +256,7 @@ public class RemoteWebDriver
     String platformString = (String) rawCapabilities.get(PLATFORM_NAME);
     Platform platform;
     try {
-      if (platformString == null || "".equals(platformString)) {
+      if (platformString == null || platformString.isEmpty()) {
         platform = Platform.ANY;
       } else {
         platform = Platform.fromString(platformString);
@@ -476,86 +473,6 @@ public class RemoteWebDriver
   }
 
   @Override
-  public ScriptKey pin(String script) {
-    UnpinnedScriptKey key = (UnpinnedScriptKey) JavascriptExecutor.super.pin(script);
-    String browserName = getCapabilities().getBrowserName().toLowerCase();
-    if ((browserName.equals("chrome")
-            || browserName.equals("msedge")
-            || browserName.equals("microsoftedge"))
-        && this instanceof HasDevTools) {
-
-      ((HasDevTools) this)
-          .maybeGetDevTools()
-          .ifPresent(
-              devTools -> {
-                devTools.createSessionIfThereIsNotOne();
-                devTools.send(
-                    new org.openqa.selenium.devtools.Command<>("Page.enable", ImmutableMap.of()));
-                devTools.send(
-                    new org.openqa.selenium.devtools.Command<>(
-                        "Runtime.evaluate", ImmutableMap.of("expression", key.creationScript())));
-                Map<String, Object> result =
-                    devTools.send(
-                        new org.openqa.selenium.devtools.Command<>(
-                            "Page.addScriptToEvaluateOnNewDocument",
-                            ImmutableMap.of("source", key.creationScript()),
-                            new TypeToken<Map<String, Object>>() {}.getType()));
-                key.setScriptId((String) result.get("identifier"));
-              });
-    }
-    return key;
-  }
-
-  @Override
-  public void unpin(ScriptKey scriptKey) {
-    UnpinnedScriptKey key = (UnpinnedScriptKey) scriptKey;
-
-    JavascriptExecutor.super.unpin(key);
-
-    String browserName = getCapabilities().getBrowserName().toLowerCase();
-    if ((browserName.equals("chrome")
-            || browserName.equals("msedge")
-            || browserName.equals("microsoftedge"))
-        && this instanceof HasDevTools) {
-      ((HasDevTools) this)
-          .maybeGetDevTools()
-          .ifPresent(
-              devTools -> {
-                devTools.send(
-                    new org.openqa.selenium.devtools.Command<>("Page.enable", ImmutableMap.of()));
-                devTools.send(
-                    new org.openqa.selenium.devtools.Command<>(
-                        "Runtime.evaluate", ImmutableMap.of("expression", key.removalScript())));
-                devTools.send(
-                    new org.openqa.selenium.devtools.Command<>(
-                        "Page.removeScriptToEvaluateOnLoad",
-                        ImmutableMap.of("identifier", key.getScriptId())));
-              });
-    }
-  }
-
-  @Override
-  public Object executeScript(ScriptKey key, Object... args) {
-    Require.stateCondition(
-        key instanceof UnpinnedScriptKey, "Script key should have been generated by this driver");
-
-    if (!getPinnedScripts().contains(key)) {
-      throw new JavascriptException("Script is unpinned");
-    }
-
-    String browserName = getCapabilities().getBrowserName().toLowerCase();
-
-    if ((browserName.equals("chrome")
-            || browserName.equals("msedge")
-            || browserName.equals("microsoftedge"))
-        && this instanceof HasDevTools) {
-      return executeScript(((UnpinnedScriptKey) key).executionScript(), args);
-    }
-
-    return executeScript(((UnpinnedScriptKey) key).getScript(), args);
-  }
-
-  @Override
   public TargetLocator switchTo() {
     return new RemoteTargetLocator();
   }
@@ -676,7 +593,7 @@ public class RemoteWebDriver
   }
 
   protected Response execute(String command) {
-    return execute(command, ImmutableMap.of());
+    return execute(command, Map.of());
   }
 
   protected ExecuteMethod getExecuteMethod() {
@@ -704,7 +621,52 @@ public class RemoteWebDriver
   public void removeVirtualAuthenticator(VirtualAuthenticator authenticator) {
     execute(
         DriverCommand.REMOVE_VIRTUAL_AUTHENTICATOR,
-        ImmutableMap.of("authenticatorId", authenticator.getId()));
+        Map.of("authenticatorId", authenticator.getId()));
+  }
+
+  /**
+   * Retrieves the downloadable files as a map of file names and their corresponding URLs.
+   *
+   * @return A map containing file names as keys and URLs as values.
+   * @throws WebDriverException if capability to enable downloads is not set
+   */
+  @Override
+  @SuppressWarnings("unchecked")
+  public List<String> getDownloadableFiles() {
+    requireDownloadsEnabled(capabilities);
+
+    Response response = execute(DriverCommand.GET_DOWNLOADABLE_FILES);
+    Map<String, List<String>> value = (Map<String, List<String>>) response.getValue();
+    return value.get("names");
+  }
+
+  /**
+   * Downloads a file from the specified location.
+   *
+   * @param fileName the name of the file to download
+   * @param targetLocation the location where the file should be downloaded
+   * @throws IOException if an I/O error occurs during the file download
+   */
+  @SuppressWarnings("unchecked")
+  @Override
+  public void downloadFile(String fileName, Path targetLocation) throws IOException {
+    requireDownloadsEnabled(capabilities);
+
+    Response response = execute(DriverCommand.DOWNLOAD_FILE, Map.of("name", fileName));
+    String contents = ((Map<String, String>) response.getValue()).get("contents");
+    Zip.unzip(contents, targetLocation.toFile());
+  }
+
+  /**
+   * Deletes all downloadable files.
+   *
+   * @throws WebDriverException capability to enable downloads must be set
+   */
+  @Override
+  public void deleteDownloadableFiles() {
+    requireDownloadsEnabled(capabilities);
+
+    execute(DriverCommand.DELETE_DOWNLOADABLE_FILES);
   }
 
   @Override
@@ -747,15 +709,25 @@ public class RemoteWebDriver
       if (text.length() > 100 && Boolean.getBoolean("webdriver.remote.shorten_log_messages")) {
         text = text.substring(0, 100) + "...";
       }
+    } else if (commandName.equals(DriverCommand.NEW_SESSION) && toLog instanceof Response) {
+      Response responseToLog = (Response) toLog;
+      try {
+        Map<String, Object> value = (Map<String, Object>) responseToLog.getValue();
+        text = new MutableCapabilities(value).toString();
+      } catch (ClassCastException ex) {
+        // keep existing text
+      }
     }
-    // No need to log a screenshot response.
+
+    // No need to log a base64 encoded responses.
     if ((commandName.equals(DriverCommand.SCREENSHOT)
-            || commandName.equals(DriverCommand.ELEMENT_SCREENSHOT))
+            || commandName.equals(DriverCommand.ELEMENT_SCREENSHOT)
+            || commandName.equals(DriverCommand.PRINT_PAGE)
+            || commandName.equals("fullPageScreenshot"))
         && toLog instanceof Response) {
       Response responseToLog = (Response) toLog;
       Response copyToLog = new Response(new SessionId((responseToLog).getSessionId()));
-      copyToLog.setValue("*Screenshot response suppressed*");
-      copyToLog.setStatus(responseToLog.getStatus());
+      copyToLog.setValue(String.format("*%s response suppressed*", commandName));
       copyToLog.setState(responseToLog.getState());
       text = String.valueOf(copyToLog);
     }
@@ -977,6 +949,7 @@ public class RemoteWebDriver
         return setScriptTimeout(Duration.ofMillis(unit.toMillis(time)));
       }
 
+      @Deprecated
       @Override
       public Timeouts setScriptTimeout(Duration duration) {
         return scriptTimeout(duration);
@@ -1117,11 +1090,11 @@ public class RemoteWebDriver
       List<WebElement> frameElements =
           RemoteWebDriver.this.findElements(
               By.cssSelector("frame[name='" + name + "'],iframe[name='" + name + "']"));
-      if (frameElements.size() == 0) {
+      if (frameElements.isEmpty()) {
         frameElements =
             RemoteWebDriver.this.findElements(By.cssSelector("frame#" + name + ",iframe#" + name));
       }
-      if (frameElements.size() == 0) {
+      if (frameElements.isEmpty()) {
         throw new NoSuchFrameException("No frame element found by name or id " + frameName);
       }
       return frame(frameElements.get(0));
@@ -1241,18 +1214,17 @@ public class RemoteWebDriver
     public void addCredential(Credential credential) {
       execute(
           DriverCommand.ADD_CREDENTIAL,
-          new ImmutableMap.Builder<String, Object>()
-              .putAll(credential.toMap())
-              .put("authenticatorId", id)
-              .build());
+          Stream.concat(
+                  credential.toMap().entrySet().stream(),
+                  Stream.of(Map.entry("authenticatorId", id)))
+              .collect(Collectors.toUnmodifiableMap((e) -> e.getKey(), (e) -> e.getValue())));
     }
 
     @Override
     public List<Credential> getCredentials() {
       List<Map<String, Object>> response =
           (List<Map<String, Object>>)
-              execute(DriverCommand.GET_CREDENTIALS, ImmutableMap.of("authenticatorId", id))
-                  .getValue();
+              execute(DriverCommand.GET_CREDENTIALS, Map.of("authenticatorId", id)).getValue();
       return response.stream().map(Credential::fromMap).collect(Collectors.toList());
     }
 
@@ -1265,19 +1237,19 @@ public class RemoteWebDriver
     public void removeCredential(String credentialId) {
       execute(
           DriverCommand.REMOVE_CREDENTIAL,
-          ImmutableMap.of("authenticatorId", id, "credentialId", credentialId));
+          Map.of("authenticatorId", id, "credentialId", credentialId));
     }
 
     @Override
     public void removeAllCredentials() {
-      execute(DriverCommand.REMOVE_ALL_CREDENTIALS, ImmutableMap.of("authenticatorId", id));
+      execute(DriverCommand.REMOVE_ALL_CREDENTIALS, Map.of("authenticatorId", id));
     }
 
     @Override
     public void setUserVerified(boolean verified) {
       execute(
           DriverCommand.SET_USER_VERIFIED,
-          ImmutableMap.of("authenticatorId", id, "isUserVerified", verified));
+          Map.of("authenticatorId", id, "isUserVerified", verified));
     }
   }
 }

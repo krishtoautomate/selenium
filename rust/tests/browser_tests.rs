@@ -15,15 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use crate::common::assert_output;
 use assert_cmd::Command;
+use exitcode::DATAERR;
 use rstest::rstest;
 use std::env::consts::OS;
+
+mod common;
 
 #[rstest]
 #[case("chrome", "chromedriver", "114", "114.0.5735.90")]
 #[case("chrome", "chromedriver", "115", "115.0.5790")]
 #[case("edge", "msedgedriver", "105", "105.0")]
 #[case("edge", "msedgedriver", "106", "106.0")]
+#[case("firefox", "geckodriver", "101", "0.31.0")]
+#[case("firefox", "geckodriver", "91", "0.31.0")]
+#[case("firefox", "geckodriver", "90", "0.30.0")]
+#[case("firefox", "geckodriver", "62", "0.29.1")]
+#[case("firefox", "geckodriver", "53", "0.18.0")]
 fn browser_version_test(
     #[case] browser: String,
     #[case] driver_name: String,
@@ -38,6 +47,8 @@ fn browser_version_test(
         &browser_version,
         "--debug",
         "--avoid-browser-download",
+        "--language-binding",
+        "java",
     ])
     .assert()
     .success()
@@ -51,16 +62,17 @@ fn browser_version_test(
     if !browser_version.is_empty() && output.contains("cache") {
         assert!(output.contains(&driver_version));
     }
+    assert!(!output.contains("Error sending stats"));
 }
 
 #[rstest]
-#[case("wrong-browser", "", "", exitcode::DATAERR)]
-#[case("chrome", "wrong-browser-version", "", exitcode::DATAERR)]
-#[case("chrome", "", "wrong-driver-version", exitcode::DATAERR)]
-#[case("firefox", "", "wrong-driver-version", exitcode::DATAERR)]
-#[case("edge", "wrong-browser-version", "", exitcode::DATAERR)]
-#[case("edge", "", "wrong-driver-version", exitcode::DATAERR)]
-#[case("iexplorer", "", "wrong-driver-version", exitcode::DATAERR)]
+#[case("wrong-browser", "", "", DATAERR)]
+#[case("chrome", "wrong-browser-version", "", DATAERR)]
+#[case("chrome", "", "wrong-driver-version", DATAERR)]
+#[case("firefox", "", "wrong-driver-version", DATAERR)]
+#[case("edge", "wrong-browser-version", "", DATAERR)]
+#[case("edge", "", "wrong-driver-version", DATAERR)]
+#[case("iexplorer", "", "wrong-driver-version", DATAERR)]
 fn wrong_parameters_test(
     #[case] browser: String,
     #[case] browser_version: String,
@@ -68,7 +80,7 @@ fn wrong_parameters_test(
     #[case] error_code: i32,
 ) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_selenium-manager"));
-    let assert_result = cmd
+    let result = cmd
         .args([
             "--debug",
             "--browser",
@@ -81,17 +93,29 @@ fn wrong_parameters_test(
         .assert()
         .try_success();
 
-    if assert_result.is_ok() {
-        let stdout = &cmd.unwrap().stdout;
-        let output = std::str::from_utf8(stdout).unwrap();
-        assert!(output.contains("in PATH"));
-    } else {
-        assert!(assert_result
-            .err()
-            .unwrap()
-            .to_string()
-            .contains(&error_code.to_string()));
-    }
+    assert_output(&mut cmd, result, vec!["in PATH"], error_code);
+}
+
+#[test]
+fn invalid_geckodriver_version_test() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_selenium-manager"));
+    let result = cmd
+        .args([
+            "--browser",
+            "firefox",
+            "--browser-version",
+            "51",
+            "--avoid-browser-download",
+        ])
+        .assert()
+        .try_success();
+
+    assert_output(
+        &mut cmd,
+        result,
+        vec!["Not valid geckodriver version found"],
+        DATAERR,
+    );
 }
 
 #[rstest]
@@ -121,18 +145,18 @@ fn browser_beta_test(#[case] browser: String, #[case] driver_name: String) {
 #[case(
     "windows",
     "chrome",
-    r#"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"#
+    r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 )]
 #[case(
     "windows",
     "chrome",
-    r#"C:\Program Files\Google\Chrome\Application\chrome.exe"#
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 )]
 #[case("linux", "chrome", "/usr/bin/google-chrome")]
 #[case(
     "macos",
     "chrome",
-    r#"/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"#
+    r"/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"
 )]
 #[case(
     "macos",

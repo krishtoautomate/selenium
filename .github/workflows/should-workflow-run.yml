@@ -25,11 +25,11 @@ jobs:
       result: ${{ steps.check-bazel-target-prefix.outputs.run-workflow }}
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 50
       - name: Setup Bazel
-        uses: p0deje/setup-bazel@0.2.0
+        uses: p0deje/setup-bazel@0.3.2
         with:
           bazelisk-cache: true
           external-cache: |

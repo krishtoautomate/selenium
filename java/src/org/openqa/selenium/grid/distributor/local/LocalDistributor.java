@@ -42,9 +42,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -107,8 +109,7 @@ import org.openqa.selenium.internal.Require;
 import org.openqa.selenium.remote.SessionId;
 import org.openqa.selenium.remote.http.HttpClient;
 import org.openqa.selenium.remote.tracing.AttributeKey;
-import org.openqa.selenium.remote.tracing.EventAttribute;
-import org.openqa.selenium.remote.tracing.EventAttributeValue;
+import org.openqa.selenium.remote.tracing.AttributeMap;
 import org.openqa.selenium.remote.tracing.Span;
 import org.openqa.selenium.remote.tracing.Status;
 import org.openqa.selenium.remote.tracing.Tracer;
@@ -380,8 +381,9 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
               .build();
 
       LOG.log(getDebugLogLevel(), "Running health check for Node " + status.getExternalUri());
-      Executors.newSingleThreadExecutor()
-          .submit(() -> Failsafe.with(initialHealthCheckPolicy).run(healthCheck::run));
+      ExecutorService executor = Executors.newSingleThreadExecutor();
+      executor.submit(() -> Failsafe.with(initialHealthCheckPolicy).run(healthCheck::run));
+      executor.shutdown();
     }
   }
 
@@ -457,6 +459,12 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
     Lock writeLock = lock.writeLock();
     writeLock.lock();
     try {
+      Node node = nodes.get(nodeId);
+
+      if (node instanceof RemoteNode) {
+        ((RemoteNode) node).close();
+      }
+
       nodes.remove(nodeId);
       model.remove(nodeId);
       allChecks.remove(nodeId);
@@ -509,13 +517,11 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
     Require.nonNull("Requests to process", request);
 
     Span span = tracer.getCurrentContext().createSpan("distributor.new_session");
-    Map<String, EventAttributeValue> attributeMap = new HashMap<>();
+    AttributeMap attributeMap = tracer.createAttributeMap();
     try {
-      attributeMap.put(
-          AttributeKey.LOGGER_CLASS.getKey(), EventAttribute.setValue(getClass().getName()));
+      attributeMap.put(AttributeKey.LOGGER_CLASS.getKey(), getClass().getName());
 
-      attributeMap.put(
-          "request.payload", EventAttribute.setValue(request.getDesiredCapabilities().toString()));
+      attributeMap.put("request.payload", request.getDesiredCapabilities().toString());
       String sessionReceivedMessage = "Session request received by the Distributor";
       span.addEvent(sessionReceivedMessage, attributeMap);
       LOG.info(
@@ -528,8 +534,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
         EXCEPTION.accept(attributeMap, exception);
         attributeMap.put(
             AttributeKey.EXCEPTION_MESSAGE.getKey(),
-            EventAttribute.setValue(
-                "Unable to create session. No capabilities found: " + exception.getMessage()));
+            "Unable to create session. No capabilities found: " + exception.getMessage());
         span.addEvent(AttributeKey.EXCEPTION_EVENT.getKey(), attributeMap);
         return Either.left(exception);
       }
@@ -574,7 +579,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
           SESSION_ID_EVENT.accept(attributeMap, sessionId);
           CAPABILITIES_EVENT.accept(attributeMap, sessionCaps);
           span.setAttribute(SESSION_URI.getKey(), sessionUri);
-          attributeMap.put(SESSION_URI.getKey(), EventAttribute.setValue(sessionUri));
+          attributeMap.put(SESSION_URI.getKey(), sessionUri);
 
           String sessionCreatedMessage = "Session created by the Distributor";
           span.addEvent(sessionCreatedMessage, attributeMap);
@@ -596,13 +601,13 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
                 "Will re-attempt to find a node which can run this session", lastFailure);
         attributeMap.put(
             AttributeKey.EXCEPTION_MESSAGE.getKey(),
-            EventAttribute.setValue("Will retry session " + request.getRequestId()));
+            "Will retry session " + request.getRequestId());
 
       } else {
         EXCEPTION.accept(attributeMap, lastFailure);
         attributeMap.put(
             AttributeKey.EXCEPTION_MESSAGE.getKey(),
-            EventAttribute.setValue("Unable to create session: " + lastFailure.getMessage()));
+            "Unable to create session: " + lastFailure.getMessage());
       }
       span.setAttribute(AttributeKey.ERROR.getKey(), true);
       span.setStatus(Status.ABORTED);
@@ -614,8 +619,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
 
       EXCEPTION.accept(attributeMap, e);
       attributeMap.put(
-          AttributeKey.EXCEPTION_MESSAGE.getKey(),
-          EventAttribute.setValue("Unable to create session: " + e.getMessage()));
+          AttributeKey.EXCEPTION_MESSAGE.getKey(), "Unable to create session: " + e.getMessage());
       span.addEvent(AttributeKey.EXCEPTION_EVENT.getKey(), attributeMap);
 
       return Either.left(e);
@@ -626,8 +630,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
       EXCEPTION.accept(attributeMap, e);
       attributeMap.put(
           AttributeKey.EXCEPTION_MESSAGE.getKey(),
-          EventAttribute.setValue(
-              "Unknown error in LocalDistributor while creating session: " + e.getMessage()));
+          "Unknown error in LocalDistributor while creating session: " + e.getMessage());
       span.addEvent(AttributeKey.EXCEPTION_EVENT.getKey(), attributeMap);
 
       return Either.left(new SessionNotCreatedException(e.getMessage(), e));
@@ -756,18 +759,20 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
     @Override
     public void run() {
       Set<RequestId> inQueue;
-      boolean loop;
+      boolean pollQueue;
+
       if (rejectUnsupportedCaps) {
         inQueue =
             sessionQueue.getQueueContents().stream()
                 .map(SessionRequestCapability::getRequestId)
                 .collect(Collectors.toSet());
-        loop = !inQueue.isEmpty();
+        pollQueue = !inQueue.isEmpty();
       } else {
         inQueue = null;
-        loop = !sessionQueue.peekEmpty();
+        pollQueue = !sessionQueue.peekEmpty();
       }
-      while (loop) {
+
+      if (pollQueue) {
         // We deliberately run this outside of a lock: if we're unsuccessful
         // starting the session, we just put the request back on the queue.
         // This does mean, however, that under high contention, we might end
@@ -783,11 +788,9 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
           List<SessionRequest> matchingRequests = sessionQueue.getNextAvailable(stereotypes);
           matchingRequests.forEach(
               req -> sessionCreatorExecutor.execute(() -> handleNewSessionRequest(req)));
-          loop = !matchingRequests.isEmpty();
-        } else {
-          loop = false;
         }
       }
+
       if (rejectUnsupportedCaps) {
         checkMatchingSlot(
             sessionQueue.getQueueContents().stream()
@@ -817,14 +820,12 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
       try (Span span =
           TraceSessionRequest.extract(tracer, sessionRequest)
               .createSpan("distributor.poll_queue")) {
-        Map<String, EventAttributeValue> attributeMap = new HashMap<>();
-        attributeMap.put(
-            AttributeKey.LOGGER_CLASS.getKey(), EventAttribute.setValue(getClass().getName()));
+        AttributeMap attributeMap = tracer.createAttributeMap();
+        attributeMap.put(AttributeKey.LOGGER_CLASS.getKey(), getClass().getName());
         span.setAttribute(AttributeKey.REQUEST_ID.getKey(), reqId.toString());
-        attributeMap.put(
-            AttributeKey.REQUEST_ID.getKey(), EventAttribute.setValue(reqId.toString()));
+        attributeMap.put(AttributeKey.REQUEST_ID.getKey(), reqId.toString());
 
-        attributeMap.put("request", EventAttribute.setValue(sessionRequest.toString()));
+        attributeMap.put("request", sessionRequest.toString());
         Either<SessionNotCreatedException, CreateSessionResponse> response =
             newSession(sessionRequest);
 
@@ -834,7 +835,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
                 Debug.getDebugLogLevel(), "Retrying {0}", sessionRequest.getDesiredCapabilities());
             boolean retried = sessionQueue.retryAddToQueue(sessionRequest);
 
-            attributeMap.put("request.retry_add", EventAttribute.setValue(retried));
+            attributeMap.put("request.retry_add", retried);
             childSpan.addEvent("Retry adding to front of queue. No slot available.", attributeMap);
 
             if (retried) {
@@ -844,8 +845,42 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
           }
         }
 
-        sessionQueue.complete(reqId, response);
+        // 'complete' will return 'true' if the session has not timed out during the creation
+        // process: it's still a valid session as it can be used by the client
+        boolean isSessionValid = sessionQueue.complete(reqId, response);
+        // If the session request has timed out, tell the Node to remove the session, so that does
+        // not stall
+        if (!isSessionValid && response.isRight()) {
+          LOG.log(
+              Debug.getDebugLogLevel(),
+              "Session for request {0} has been created but it has timed out, stopping it to avoid"
+                  + " stalled browser",
+              reqId.toString());
+          URI nodeURI = response.right().getSession().getUri();
+          Node node = getNodeFromURI(nodeURI);
+          if (node != null) {
+            node.stop(response.right().getSession().getId());
+          }
+        }
       }
+    }
+  }
+
+  protected Node getNodeFromURI(URI uri) {
+    Lock readLock = this.lock.readLock();
+    readLock.lock();
+    try {
+      Optional<NodeStatus> nodeStatus =
+          model.getSnapshot().stream()
+              .filter(node -> node.getExternalUri().equals(uri))
+              .findFirst();
+      if (nodeStatus.isPresent()) {
+        return nodes.get(nodeStatus.get().getNodeId());
+      } else {
+        return null;
+      }
+    } finally {
+      readLock.unlock();
     }
   }
 }

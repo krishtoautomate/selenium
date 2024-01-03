@@ -330,9 +330,9 @@ class AugmenterTest {
 
     private static class Data {
 
-      public String commandName;
-      public Map<String, ?> args;
-      public Object returnValue;
+      public final String commandName;
+      public final Map<String, ?> args;
+      public final Object returnValue;
 
       public Data(String commandName, Map<String, ?> args, Object returnValue) {
         this.commandName = commandName;
@@ -378,8 +378,6 @@ class AugmenterTest {
 
   public static class ChildRemoteDriver extends RemoteWebDriver implements HasMagicNumbers {
 
-    private int magicNumber = 3;
-
     @Override
     public Capabilities getCapabilities() {
       return new FirefoxOptions();
@@ -387,13 +385,11 @@ class AugmenterTest {
 
     @Override
     public int getMagicNumber() {
-      return magicNumber;
+      return 3;
     }
   }
 
   public static class WithFinals extends RemoteWebDriver {
-
-    public final String finalField = "FINAL";
 
     @Override
     public Capabilities getCapabilities() {

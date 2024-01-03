@@ -29,6 +29,7 @@ import java.net.ProxySelector;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient.Version;
 import java.net.http.HttpResponse.BodyHandler;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpTimeoutException;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLContext;
 import org.openqa.selenium.Credentials;
 import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.UsernameAndPassword;
@@ -144,6 +146,16 @@ public class JdkHttpClient implements HttpClient {
       builder = builder.proxy(proxySelector);
     }
 
+    SSLContext sslContext = config.sslContext();
+    if (sslContext != null) {
+      builder.sslContext(sslContext);
+    }
+
+    String version = config.version();
+    if (version != null) {
+      builder.version(Version.valueOf(version));
+    }
+
     this.client = builder.build();
   }
 
@@ -220,7 +232,6 @@ public class JdkHttpClient implements HttpClient {
                     LOG.log(
                         Level.FINE, error, () -> "An error has occurred: " + error.getMessage());
                     listener.onError(error);
-                    webSocket.request(1);
                   }
                 });
 

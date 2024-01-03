@@ -19,7 +19,6 @@ package org.openqa.selenium.bidi;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.openqa.selenium.testing.Safely.safelyCall;
-import static org.openqa.selenium.testing.drivers.Browser.CHROME;
 import static org.openqa.selenium.testing.drivers.Browser.EDGE;
 import static org.openqa.selenium.testing.drivers.Browser.IE;
 import static org.openqa.selenium.testing.drivers.Browser.SAFARI;
@@ -56,7 +55,6 @@ class BiDiTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(CHROME)
   @NotYetImplemented(EDGE)
   void canNavigateAndListenToErrors()
       throws ExecutionException, InterruptedException, TimeoutException {
@@ -69,8 +67,9 @@ class BiDiTest extends JupiterTestBase {
       page = server.whereIs("/bidi/logEntryAdded.html");
       NavigationResult info = browsingContext.navigate(page, ReadinessState.COMPLETE);
 
+      // If navigation was successful, we expect both the url and navigation id to be set
       assertThat(browsingContext.getId()).isNotEmpty();
-      assertThat(info.getNavigationId()).isNull();
+      assertThat(info.getNavigationId()).isNotNull();
       assertThat(info.getUrl()).contains("/bidi/logEntryAdded.html");
 
       driver.findElement(By.id("jsException")).click();

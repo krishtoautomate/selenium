@@ -20,11 +20,11 @@
 // Imports for LogInspector and BrowsingContext
 const assert = require('assert')
 const firefox = require('../../firefox')
-const { Browser } = require('../../')
+const { Browser, By, WebElement } = require('../../')
 const { Pages, suite } = require('../../lib/test')
 const logInspector = require('../../bidi/logInspector')
 const BrowsingContext = require('../../bidi/browsingContext')
-const BrowsingConextInspector = require('../../bidi/browsingContextInspector')
+const BrowsingContextInspector = require('../../bidi/browsingContextInspector')
 const NetworkInspector = require('../../bidi/networkInspector')
 const filterBy = require('../../bidi/filterBy')
 const until = require('../../lib/until')
@@ -32,6 +32,7 @@ const until = require('../../lib/until')
 // Imports for Script Module
 const ScriptManager = require('../../bidi/scriptManager')
 const {
+  ChannelValue,
   LocalValue,
   ReferenceValue,
   RemoteReferenceType,
@@ -301,6 +302,7 @@ suite(
       let startIndex = 0
       let endIndex = 5
       let pdfMagicNumber = 'JVBER'
+      let pngMagicNumber = 'iVBOR'
 
       it('can create a browsing context for given id', async function () {
         const id = await driver.getWindowHandle()
@@ -348,7 +350,7 @@ suite(
         let info = await browsingContext.navigate(Pages.logEntryAdded)
 
         assert.notEqual(browsingContext.id, null)
-        assert.equal(info.navigationId, null)
+        assert.notEqual(info.navigationId, null)
         assert(info.url.includes('/bidi/logEntryAdded.html'))
       })
 
@@ -363,7 +365,7 @@ suite(
         )
 
         assert.notEqual(browsingContext.id, null)
-        assert.equal(info.navigationId, null)
+        assert.notEqual(info.navigationId, null)
         assert(info.url.includes('/bidi/logEntryAdded.html'))
       })
 
@@ -441,13 +443,287 @@ suite(
         let base64Code = result.data.slice(startIndex, endIndex)
         assert.strictEqual(base64Code, pdfMagicNumber)
       })
+
+      it('can take screenshot', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        const response = await browsingContext.captureScreenshot()
+        const base64code = response.slice(startIndex, endIndex)
+        assert.equal(base64code, pngMagicNumber)
+      })
+
+      it('can take box screenshot', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        const response = await browsingContext.captureBoxScreenshot(
+          5,
+          5,
+          10,
+          10
+        )
+
+        const base64code = response.slice(startIndex, endIndex)
+        assert.equal(base64code, pngMagicNumber)
+      })
+
+      it('can take element screenshot', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.formPage)
+        const element = await driver.findElement(By.id('checky'))
+        const elementId = await element.getId()
+        const response = await browsingContext.captureElementScreenshot(
+          elementId
+        )
+
+        const base64code = response.slice(startIndex, endIndex)
+        assert.equal(base64code, pngMagicNumber)
+      })
+
+      it('can scroll and take element screenshot', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.formPage)
+        const element = await driver.findElement(By.id('checkbox-with-label'))
+        const elementId = await element.getId()
+        const response = await browsingContext.captureElementScreenshot(
+          elementId,
+          undefined,
+          true
+        )
+
+        const base64code = response.slice(startIndex, endIndex)
+        assert.equal(base64code, pngMagicNumber)
+      })
+
+      it('can activate a browsing context', async function () {
+        const id = await driver.getWindowHandle()
+        const window1 = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await BrowsingContext(driver, {
+          type: 'window',
+        })
+
+        const result = await driver.executeScript('return document.hasFocus();')
+
+        assert.equal(result, false)
+
+        await window1.activate()
+        const result2 = await driver.executeScript(
+          'return document.hasFocus();'
+        )
+
+        assert.equal(result2, true)
+      })
+
+      it('can handle user prompt', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.alertsPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        await browsingContext.handleUserPrompt()
+
+        const result = await driver.getTitle()
+
+        assert.equal(result, 'Testing Alerts')
+      })
+
+      it('can accept user prompt', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.alertsPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        await browsingContext.handleUserPrompt(true)
+
+        const result = await driver.getTitle()
+
+        assert.equal(result, 'Testing Alerts')
+      })
+
+      it('can dismiss user prompt', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.alertsPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        await browsingContext.handleUserPrompt(false)
+
+        const result = await driver.getTitle()
+
+        assert.equal(result, 'Testing Alerts')
+      })
+
+      it('can pass user text to user prompt', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.userpromptPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        const userText = 'Selenium automates browsers'
+
+        await browsingContext.handleUserPrompt(undefined, userText)
+
+        const result = await driver.getPageSource()
+        assert.equal(result.includes(userText), true)
+      })
+
+      it('can accept user prompt with user text', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.userpromptPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        const userText = 'Selenium automates browsers'
+
+        await browsingContext.handleUserPrompt(true, userText)
+
+        const result = await driver.getPageSource()
+        assert.equal(result.includes(userText), true)
+      })
+
+      it('can dismiss user prompt with user text', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.userpromptPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        const userText = 'Selenium automates browsers'
+
+        await browsingContext.handleUserPrompt(false, userText)
+
+        const result = await driver.getPageSource()
+        assert.equal(result.includes(userText), false)
+      })
+
+      xit('can reload a browsing context', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        const result = await browsingContext.navigate(
+          Pages.logEntryAdded,
+          'complete'
+        )
+
+        await browsingContext.reload()
+        assert.equal(result.navigationId, null)
+        assert(result.url.includes('/bidi/logEntryAdded.html'))
+      })
+
+      xit('can reload with readiness state', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        const result = await browsingContext.navigate(
+          Pages.logEntryAdded,
+          'complete'
+        )
+
+        await browsingContext.reload(undefined, 'complete')
+        assert.notEqual(result.navigationId, null)
+        assert(result.url.includes('/bidi/logEntryAdded.html'))
+      })
+
+      it('can set viewport', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.blankPage)
+
+        await browsingContext.setViewport(250, 300)
+
+        const result = await driver.executeScript(
+          'return [window.innerWidth, window.innerHeight];'
+        )
+        assert.equal(result[0], 250)
+        assert.equal(result[1], 300)
+      })
+
+      xit('can set viewport with device pixel ratio', async function () {
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await driver.get(Pages.blankPage)
+
+        await browsingContext.setViewport(250, 300, 5)
+
+        const result = await driver.executeScript(
+          'return [window.innerWidth, window.innerHeight];'
+        )
+        assert.equal(result[0], 250)
+        assert.equal(result[1], 300)
+
+        const devicePixelRatio = await driver.executeScript(
+          'return window.devicePixelRatio;'
+        )
+        assert.equal(devicePixelRatio, 5)
+      })
     })
 
     describe('Browsing Context Inspector', function () {
       it('can listen to window browsing context created event', async function () {
         let contextInfo = null
-        const browsingConextInspector = await BrowsingConextInspector(driver)
-        await browsingConextInspector.onBrowsingContextCreated((entry) => {
+        const browsingcontextInspector = await BrowsingContextInspector(driver)
+        await browsingcontextInspector.onBrowsingContextCreated((entry) => {
           contextInfo = entry
         })
 
@@ -461,8 +737,8 @@ suite(
 
       it('can listen to tab browsing context created event', async function () {
         let contextInfo = null
-        const browsingConextInspector = await BrowsingConextInspector(driver)
-        await browsingConextInspector.onBrowsingContextCreated((entry) => {
+        const browsingcontextInspector = await BrowsingContextInspector(driver)
+        await browsingcontextInspector.onBrowsingContextCreated((entry) => {
           contextInfo = entry
         })
 
@@ -476,9 +752,9 @@ suite(
       })
 
       it('can listen to dom content loaded event', async function () {
-        const browsingConextInspector = await BrowsingConextInspector(driver)
+        const browsingcontextInspector = await BrowsingContextInspector(driver)
         let navigationInfo = null
-        await browsingConextInspector.onDomContentLoaded((entry) => {
+        await browsingcontextInspector.onDomContentLoaded((entry) => {
           navigationInfo = entry
         })
 
@@ -493,9 +769,9 @@ suite(
 
       it('can listen to browsing context loaded event', async function () {
         let navigationInfo = null
-        const browsingConextInspector = await BrowsingConextInspector(driver)
+        const browsingcontextInspector = await BrowsingContextInspector(driver)
 
-        await browsingConextInspector.onBrowsingContextLoaded((entry) => {
+        await browsingcontextInspector.onBrowsingContextLoaded((entry) => {
           navigationInfo = entry
         })
         const browsingContext = await BrowsingContext(driver, {
@@ -505,6 +781,93 @@ suite(
 
         assert.equal(navigationInfo.browsingContextId, browsingContext.id)
         assert(navigationInfo.url.includes('/bidi/logEntryAdded.html'))
+      })
+
+      xit('can listen to navigation started event', async function () {
+        let navigationInfo = null
+        const browsingConextInspector = await BrowsingContextInspector(driver)
+
+        await browsingConextInspector.onNavigationStarted((entry) => {
+          navigationInfo = entry
+        })
+
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: await driver.getWindowHandle(),
+        })
+
+        await browsingContext.navigate(Pages.logEntryAdded, 'complete')
+
+        assert.equal(navigationInfo.browsingContextId, browsingContext.id)
+        assert(navigationInfo.url.includes('/bidi/logEntryAdded.html'))
+      })
+
+      it('can listen to fragment navigated event', async function () {
+        let navigationInfo = null
+        const browsingConextInspector = await BrowsingContextInspector(driver)
+
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: await driver.getWindowHandle(),
+        })
+        await browsingContext.navigate(Pages.linkedImage, 'complete')
+
+        await browsingConextInspector.onFragmentNavigated((entry) => {
+          navigationInfo = entry
+        })
+
+        await browsingContext.navigate(
+          Pages.linkedImage + '#linkToAnchorOnThisPage',
+          'complete'
+        )
+
+        assert.equal(navigationInfo.browsingContextId, browsingContext.id)
+        assert(navigationInfo.url.includes('linkToAnchorOnThisPage'))
+      })
+
+      xit('can listen to user prompt opened event', async function () {
+        let userpromptOpened = null
+        const browsingConextInspector = await BrowsingContextInspector(driver)
+
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: await driver.getWindowHandle(),
+        })
+
+        await driver.get(Pages.alertsPage)
+
+        await driver.findElement(By.id('alert')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        await browsingConextInspector.onUserPromptOpened((entry) => {
+          userpromptOpened = entry
+        })
+
+        assert.equal(userpromptOpened.browsingContextId, browsingContext.id)
+        assert.equal(userpromptOpened.type, 'alert')
+      })
+
+      xit('can listen to user prompt closed event', async function () {
+        let userpromptClosed = null
+        const browsingConextInspector = await BrowsingContextInspector(driver)
+
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: await driver.getWindowHandle(),
+        })
+
+        await driver.get(Pages.alertsPage)
+
+        await driver.findElement(By.id('prompt')).click()
+
+        await driver.wait(until.alertIsPresent())
+
+        await browsingConextInspector.onUserPromptClosed((entry) => {
+          userpromptClosed = entry
+        })
+
+        await browsingContext.handleUserPrompt(true, 'selenium')
+
+        assert.equal(userpromptClosed.browsingContextId, browsingContext.id)
+        assert.equal(userpromptClosed.accepted, true)
+        assert.equal(userpromptClosed.userText, 'selenium')
       })
     })
 
@@ -1265,7 +1628,6 @@ suite(
       it('can evaluate in a realm', async function () {
         const firstTab = await driver.getWindowHandle()
         await driver.switchTo().newWindow('tab')
-        const secondTab = await driver.getWindowHandle()
         const manager = await ScriptManager(firstTab, driver)
 
         const realms = await manager.getAllRealms()
@@ -1770,6 +2132,55 @@ suite(
 
         assert.equal(result_in_sandbox.result.type, 'undefined')
       })
+
+      it('can listen to channel message', async function () {
+        const manager = await ScriptManager(undefined, driver)
+
+        let message = null
+
+        await manager.onMessage((m) => {
+          message = m
+        })
+
+        let argumentValues = []
+        let value = new ArgumentValue(
+          LocalValue.createChannelValue(new ChannelValue('channel_name'))
+        )
+        argumentValues.push(value)
+
+        const result = await manager.callFunctionInBrowsingContext(
+          await driver.getWindowHandle(),
+          '(channel) => channel("foo")',
+          false,
+          argumentValues
+        )
+        assert.equal(result.resultType, EvaluateResultType.SUCCESS)
+        assert.notEqual(message, null)
+        assert.equal(message.channel, 'channel_name')
+        assert.equal(message.data.type, 'string')
+        assert.equal(message.data.value, 'foo')
+      })
+
+      it('can listen to realm created message', async function () {
+        const manager = await ScriptManager(undefined, driver)
+
+        let realmInfo = null
+
+        await manager.onRealmCreated((result) => {
+          realmInfo = result
+        })
+
+        const id = await driver.getWindowHandle()
+        const browsingContext = await BrowsingContext(driver, {
+          browsingContextId: id,
+        })
+
+        await browsingContext.navigate(Pages.blankPage, 'complete')
+
+        assert.notEqual(realmInfo, null)
+        assert.notEqual(realmInfo.realmId, null)
+        assert.equal(realmInfo.realmType, RealmType.WINDOW)
+      })
     })
 
     describe('Network Inspector', function () {
@@ -1803,7 +2214,10 @@ suite(
 
         assert.equal(beforeRequestEvent.request.method, 'GET')
         assert.equal(beforeRequestEvent.request.cookies[0].name, 'north')
-        assert.equal(beforeRequestEvent.request.cookies[0].value, 'biryani')
+        assert.equal(
+          beforeRequestEvent.request.cookies[0].value.value,
+          'biryani'
+        )
         const url = beforeRequestEvent.request.url
         assert.equal(url, await driver.getCurrentUrl())
 
@@ -1814,7 +2228,7 @@ suite(
         await driver.navigate().refresh()
 
         assert.equal(beforeRequestEvent.request.cookies[1].name, 'south')
-        assert.equal(beforeRequestEvent.request.cookies[1].value, 'dosa')
+        assert.equal(beforeRequestEvent.request.cookies[1].value.value, 'dosa')
       })
 
       it('can redirect http equiv', async function () {
@@ -1962,7 +2376,7 @@ suite(
         const info = await browsingContext.navigate(Pages.logEntryAdded)
 
         assert.notEqual(browsingContext.id, null)
-        assert.equal(info.navigationId, null)
+        assert.notEqual(info.navigationId, null)
         assert(info.url.includes('/bidi/logEntryAdded.html'))
 
         await driver.wait(until.urlIs(Pages.logEntryAdded))

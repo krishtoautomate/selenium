@@ -36,7 +36,7 @@ test.suite(
     beforeEach(async function () {
       driver = await env
         .builder()
-        .setChromeOptions(new chrome.Options().headless())
+        .setChromeOptions(new chrome.Options().addArguments('-headless'))
         .build()
     })
     afterEach(async () => await driver.quit())
@@ -289,12 +289,7 @@ test.suite(
         await assertAsyncScriptPinned(() => driver.executeAsyncScript(script))
 
         async function assertAsyncScriptPinned(fn) {
-          try {
-            await fn()
-            return
-          } catch (err) {
-            throw err
-          }
+          await fn()
         }
       })
     })

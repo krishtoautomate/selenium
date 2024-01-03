@@ -18,6 +18,7 @@
 
 using Newtonsoft.Json;
 using OpenQA.Selenium.Internal;
+using OpenQA.Selenium.Internal.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -34,35 +35,38 @@ namespace OpenQA.Selenium
     /// </summary>
     public static class SeleniumManager
     {
-        private readonly static string binaryFullPath;
+        private static readonly ILogger _logger = Log.GetLogger(typeof(SeleniumManager));
+
+        private static readonly string BinaryFullPath = Environment.GetEnvironmentVariable("SE_MANAGER_PATH");
 
         static SeleniumManager()
         {
-            var currentDirectory = AppContext.BaseDirectory;
 
-            string binary;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (BinaryFullPath == null)
             {
-                binary = "selenium-manager/windows/selenium-manager.exe";
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                binary = "selenium-manager/linux/selenium-manager";
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                binary = "selenium-manager/macos/selenium-manager";
-            }
-            else
-            {
-                throw new WebDriverException("Selenium Manager did not find supported operating system");
+                var currentDirectory = AppContext.BaseDirectory;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    BinaryFullPath = Path.Combine(currentDirectory, "selenium-manager", "windows", "selenium-manager.exe");
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    BinaryFullPath = Path.Combine(currentDirectory, "selenium-manager", "linux", "selenium-manager");
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    BinaryFullPath = Path.Combine(currentDirectory, "selenium-manager", "macos", "selenium-manager");
+                }
+                else
+                {
+                    throw new PlatformNotSupportedException(
+                        $"Selenium Manager doesn't support your runtime platform: {RuntimeInformation.OSDescription}");
+                }
             }
 
-            binaryFullPath = Path.Combine(currentDirectory, binary);
-
-            if (!File.Exists(binaryFullPath))
+            if (!File.Exists(BinaryFullPath))
             {
-                throw new WebDriverException($"Unable to locate or obtain Selenium Manager binary at {binaryFullPath}");
+                throw new WebDriverException($"Unable to locate or obtain Selenium Manager binary at {BinaryFullPath}");
             }
         }
 
@@ -77,6 +81,7 @@ namespace OpenQA.Selenium
         {
             StringBuilder argsBuilder = new StringBuilder();
             argsBuilder.AppendFormat(CultureInfo.InvariantCulture, " --browser \"{0}\"", options.BrowserName);
+            argsBuilder.Append(" --language-binding csharp");
             argsBuilder.Append(" --output json");
 
             if (!string.IsNullOrEmpty(options.BrowserVersion))
@@ -102,19 +107,21 @@ namespace OpenQA.Selenium
                 }
             }
 
-            Dictionary<string, object> output = RunCommand(binaryFullPath, argsBuilder.ToString());
-            string browserPath = (string)output["browser_path"];
-            string driverPath = (string)output["driver_path"];
+            Dictionary<string, object> output = RunCommand(BinaryFullPath, argsBuilder.ToString());
 
             try
             {
-                options.BinaryLocation = browserPath;
+                options.BinaryLocation = (string)output["browser_path"] == "" ? null : (string)output["browser_path"];
                 options.BrowserVersion = null;
             }
             catch (NotImplementedException)
             {
                 // Cannot set Browser Location for this driver and that is ok
             }
+
+            var driverPath = (string)output["driver_path"];
+
+            _logger.Trace($"Driver path: {driverPath}");
 
             return driverPath;
         }
@@ -130,7 +137,7 @@ namespace OpenQA.Selenium
         private static Dictionary<string, object> RunCommand(string fileName, string arguments)
         {
             Process process = new Process();
-            process.StartInfo.FileName = binaryFullPath;
+            process.StartInfo.FileName = BinaryFullPath;
             process.StartInfo.Arguments = arguments;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
@@ -163,20 +170,20 @@ namespace OpenQA.Selenium
 
                     var exceptionMessageBuilder = new StringBuilder($"Selenium Manager process exited abnormally with {process.ExitCode} code: {fileName} {arguments}");
 
-                    if (!string.IsNullOrEmpty(errorOutputBuilder.ToString()))
+                    if (!string.IsNullOrWhiteSpace(errorOutputBuilder.ToString()))
                     {
                         exceptionMessageBuilder.AppendLine();
-                        exceptionMessageBuilder.Append("Error Output >>");
-                        exceptionMessageBuilder.AppendLine();
+                        exceptionMessageBuilder.AppendLine("Error Output >>");
                         exceptionMessageBuilder.Append(errorOutputBuilder);
+                        exceptionMessageBuilder.AppendLine("<<");
                     }
 
-                    if (!string.IsNullOrEmpty(outputBuilder.ToString()))
+                    if (!string.IsNullOrWhiteSpace(outputBuilder.ToString()))
                     {
                         exceptionMessageBuilder.AppendLine();
-                        exceptionMessageBuilder.Append("Standard Output >>");
-                        exceptionMessageBuilder.AppendLine();
+                        exceptionMessageBuilder.AppendLine("Standard Output >>");
                         exceptionMessageBuilder.Append(outputBuilder);
+                        exceptionMessageBuilder.AppendLine("<<");
                     }
 
                     throw new WebDriverException(exceptionMessageBuilder.ToString());

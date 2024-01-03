@@ -17,10 +17,10 @@
 
 package org.openqa.selenium.bidi;
 
-import com.google.common.collect.ImmutableMap;
 import java.io.Closeable;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.openqa.selenium.internal.Require;
@@ -29,12 +29,9 @@ public class BiDi implements Closeable {
 
   private final Duration timeout = Duration.ofSeconds(30);
   private final Connection connection;
-  private final BiDiSessionStatus status;
 
   public BiDi(Connection connection) {
     this.connection = Require.nonNull("WebSocket connection", connection);
-    this.status =
-        send(new Command<>("session.status", Collections.emptyMap(), BiDiSessionStatus.class));
   }
 
   @Override
@@ -60,8 +57,7 @@ public class BiDi implements Closeable {
 
     send(
         new Command<>(
-            "session.subscribe",
-            ImmutableMap.of("events", Collections.singletonList(event.getMethod()))));
+            "session.subscribe", Map.of("events", Collections.singletonList(event.getMethod()))));
 
     connection.addListener(event, handler);
   }
@@ -74,7 +70,7 @@ public class BiDi implements Closeable {
     send(
         new Command<>(
             "session.subscribe",
-            ImmutableMap.of(
+            Map.of(
                 "contexts",
                 Collections.singletonList(browsingContextId),
                 "events",
@@ -91,7 +87,7 @@ public class BiDi implements Closeable {
     send(
         new Command<>(
             "session.subscribe",
-            ImmutableMap.of(
+            Map.of(
                 "contexts",
                 browsingContextIds,
                 "events",
@@ -109,7 +105,7 @@ public class BiDi implements Closeable {
       send(
           new Command<>(
               "session.unsubscribe",
-              ImmutableMap.of("events", Collections.singletonList(event.getMethod()))));
+              Map.of("events", Collections.singletonList(event.getMethod()))));
 
       connection.clearListener(event);
     }
@@ -120,6 +116,6 @@ public class BiDi implements Closeable {
   }
 
   public BiDiSessionStatus getBidiSessionStatus() {
-    return status;
+    return send(new Command<>("session.status", Collections.emptyMap(), BiDiSessionStatus.class));
   }
 }

@@ -79,7 +79,9 @@ public class DefaultSlotMatcher implements SlotMatcher, Serializable {
         (stereotype.getBrowserName() == null || stereotype.getBrowserName().isEmpty() || capabilities.getBrowserName() == null || capabilities.getBrowserName().isEmpty())
             || Objects.equals(stereotype.getBrowserName(), capabilities.getBrowserName());
     boolean browserVersionMatch =
-        (stereotype.getBrowserVersion() == null || stereotype.getBrowserVersion().isEmpty() || capabilities.getBrowserVersion() == null || capabilities.getBrowserVersion().isEmpty())
+        (capabilities.getBrowserVersion() == null
+                || capabilities.getBrowserVersion().isEmpty()
+                || Objects.equals(capabilities.getBrowserVersion(), "stable"))
             || Objects.equals(stereotype.getBrowserVersion(), capabilities.getBrowserVersion());
     boolean platformNameMatch =
         capabilities.getPlatformName() == null

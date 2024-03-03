@@ -46,7 +46,7 @@ export function createSessionData (
   nodeUri: string,
   sessionDurationMillis: number,
   slot: any,
-  origin: string
+  origin: string,
 ): SessionData {
   const parsed = JSON.parse(capabilities) as Capabilities
   const browserName = parsed.browserName
@@ -65,7 +65,7 @@ export function createSessionData (
     }
   }
   const name: string = parsed['se:name'] ?? id
-  const udid: string = (parsed['appium:udid'] ?? parsed['udid']) ?? '';
+  const udid: string = parsed.udid ?? (parsed['appium:udid'] ?? parsed['udid']) ?? '';
   const platformVersion: string = (parsed['appium:platformVersion'] ?? parsed['platformVersion']) ?? '';
   return {
     id,

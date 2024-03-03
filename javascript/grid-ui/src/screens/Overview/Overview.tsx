@@ -80,9 +80,6 @@ function Overview (): JSX.Element {
         slotCount: item.slots,
         rawData: item,
         udid: (item.stereotype['appium:udid'] ?? item.stereotype['udid']) ?? '',
-        // udid: item.stereotype.udid
-        //platformVersion: (item.stereotype['appium:platformVersion'] ?? item.stereotype['platformVersion']) ?? ''
-        // platformVersion: platformVersion.length > 0 ? 'v.' + platformVersion : platformVersion
       }
       return slotStereotype
     })

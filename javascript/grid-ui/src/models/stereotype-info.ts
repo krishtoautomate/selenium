@@ -22,7 +22,6 @@ interface StereotypeInfo {
   slotCount: number
   rawData: any
   udid: string
-  //platformVersion: string
 }
 
 export default StereotypeInfo

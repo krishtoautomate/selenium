@@ -483,7 +483,7 @@ function RunningSessions (props) {
               </Table>
             </TableContainer>
             <TablePagination
-              rowsPerPageOptions={[5, 10, 15, 25, 50, 100]}
+              rowsPerPageOptions={[5, 15, 25, 50, 75, 100]}
               component='div'
               count={rows.length}
               rowsPerPage={rowsPerPage}

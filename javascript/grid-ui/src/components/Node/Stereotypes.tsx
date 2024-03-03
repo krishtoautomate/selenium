@@ -39,11 +39,6 @@ function CreateStereotypeGridItem (slotStereotype: StereotypeInfo,
               <OsLogo osName={slotStereotype.platformName} size={Size.XS} />
               <BrowserLogo browserName={slotStereotype.browserName} />
               <Typography variant='caption'>
-                {/* <strong>
-                  {slotStereotype.browserVersion.length > 0 ? slotStereotype.browserVersion : slotStereotype.platformName}
-                </strong> */}
-                {/* {slotStereotype.platformVersion.length > 0 ? slotStereotype.platformVersion : slotStereotype.browserVersion} */}
-
                 {slotStereotype.browserVersion}
               </Typography>
             </Grid>

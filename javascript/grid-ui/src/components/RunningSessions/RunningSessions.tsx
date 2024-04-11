@@ -435,6 +435,22 @@ function RunningSessions (props) {
                                 {browserVersion(row.browserVersion as string)}
                               </DialogTitle>
                               <DialogContent dividers>
+                              <Typography gutterBottom>
+                                  SessionId: {row.id}
+                                </Typography>
+                                {/* <Typography gutterBottom component='span'>
+                                  <pre>
+                                    {row.id}
+                                  </pre>
+                                </Typography> */}
+                                <Typography gutterBottom>
+                                  NodeId: {row.nodeId}
+                                </Typography>
+                                {/* <Typography gutterBottom component='span'>
+                                  <pre>
+                                    {row.nodeId}
+                                  </pre>
+                                </Typography> */}
                                 <Typography gutterBottom>
                                   Capabilities:
                                 </Typography>

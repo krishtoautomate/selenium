@@ -26,6 +26,7 @@ import org.openqa.selenium.grid.config.ConfigException;
 import org.openqa.selenium.grid.data.SlotMatcher;
 import org.openqa.selenium.grid.distributor.Distributor;
 import org.openqa.selenium.grid.distributor.selector.SlotSelector;
+import org.openqa.selenium.grid.server.BaseServerOptions;
 
 public class DistributorOptions {
 
@@ -36,7 +37,7 @@ public class DistributorOptions {
   static final String DEFAULT_SLOT_MATCHER = "org.openqa.selenium.grid.data.DefaultSlotMatcher";
   static final String DEFAULT_SLOT_SELECTOR_IMPLEMENTATION =
       "org.openqa.selenium.grid.distributor.selector.DefaultSlotSelector";
-  static final boolean DEFAULT_REJECT_UNSUPPORTED_CAPS = true;
+  static final boolean DEFAULT_REJECT_UNSUPPORTED_CAPS = false;
   static final int DEFAULT_NEWSESSION_THREADPOOL_SIZE =
       Runtime.getRuntime().availableProcessors() * 3;
   private final Config config;
@@ -67,6 +68,8 @@ public class DistributorOptions {
       return host.get();
     }
 
+    BaseServerOptions serverOptions = new BaseServerOptions(config);
+    String schema = (serverOptions.isSecure() || serverOptions.isSelfSigned()) ? "https" : "http";
     Optional<Integer> port = config.getInt(DISTRIBUTOR_SECTION, "port");
     Optional<String> hostname = config.get(DISTRIBUTOR_SECTION, "hostname");
 
@@ -75,7 +78,7 @@ public class DistributorOptions {
     }
 
     try {
-      return new URI("http", null, hostname.get(), port.get(), null, null, null);
+      return new URI(schema, null, hostname.get(), port.get(), null, null, null);
     } catch (URISyntaxException e) {
       throw new ConfigException(
           "Distributor uri configured through host (%s) and port (%d) is not a valid URI",

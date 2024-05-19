@@ -28,7 +28,7 @@ module Selenium
           @create_driver_error_count = 0
 
           $LOAD_PATH.insert(0, root.join('bazel-bin/rb/lib').to_s) if File.exist?(root.join('bazel-bin/rb/lib'))
-          WebDriver.logger.ignore(%i[logger_info])
+          WebDriver.logger.ignore(:logger_info)
           SeleniumManager.bin_path = root.join('bazel-bin/rb/bin').to_s if File.exist?(root.join('bazel-bin/rb/bin'))
 
           @driver = ENV.fetch('WD_SPEC_DRIVER', 'chrome').tr('-', '_').to_sym
@@ -142,7 +142,7 @@ module Selenium
         def create_driver!(listener: nil, **opts, &block)
           check_for_previous_error
 
-          method = "#{driver}_driver".to_sym
+          method = :"#{driver}_driver"
           instance = if private_methods.include?(method)
                        send(method, listener: listener, options: build_options(**opts))
                      else
@@ -167,7 +167,7 @@ module Selenium
         private
 
         def build_options(**opts)
-          options_method = "#{browser}_options".to_sym
+          options_method = :"#{browser}_options"
           if private_methods.include?(options_method)
             send(options_method, **opts)
           else
@@ -209,6 +209,7 @@ module Selenium
           service ||= WebDriver::Service.chrome
           service.args << '--disable-build-check' if ENV['DISABLE_BUILD_CHECK']
           service.args << '--verbose' if WebDriver.logger.debug?
+          service.executable_path = ENV['CHROMEDRIVER_BINARY'] if ENV.key?('CHROMEDRIVER_BINARY')
           WebDriver::Driver.for(:chrome, service: service, **opts)
         end
 
@@ -216,13 +217,15 @@ module Selenium
           service ||= WebDriver::Service.edge
           service.args << '--disable-build-check' if ENV['DISABLE_BUILD_CHECK']
           service.args << '--verbose' if WebDriver.logger.debug?
+          service.executable_path = ENV['MSEDGEDRIVER_BINARY'] if ENV.key?('MSEDGEDRIVER_BINARY')
           WebDriver::Driver.for(:edge, service: service, **opts)
         end
 
         def firefox_driver(service: nil, **opts)
           service ||= WebDriver::Service.firefox
           service.args.push('--log', 'trace') if WebDriver.logger.debug?
-          WebDriver::Driver.for(:firefox, **opts)
+          service.executable_path = ENV['GECKODRIVER_BINARY'] if ENV.key?('GECKODRIVER_BINARY')
+          WebDriver::Driver.for(:firefox, service: service, **opts)
         end
 
         def safari_driver(**opts)
@@ -240,19 +243,23 @@ module Selenium
         def chrome_options(args: [], **opts)
           opts[:binary] ||= ENV['CHROME_BINARY'] if ENV.key?('CHROME_BINARY')
           args << '--headless=chrome' if ENV['HEADLESS']
+          args << '--no-sandbox'
+          args << '--disable-gpu'
           WebDriver::Options.chrome(browser_version: 'stable', args: args, **opts)
         end
 
         def edge_options(args: [], **opts)
           opts[:binary] ||= ENV['EDGE_BINARY'] if ENV.key?('EDGE_BINARY')
           args << '--headless=chrome' if ENV['HEADLESS']
+          args << '--no-sandbox'
+          args << '--disable-gpu'
           WebDriver::Options.edge(browser_version: 'stable', args: args, **opts)
         end
 
         def firefox_options(args: [], **opts)
           opts[:binary] ||= ENV['FIREFOX_BINARY'] if ENV.key?('FIREFOX_BINARY')
           args << '--headless' if ENV['HEADLESS']
-          WebDriver::Options.firefox(browser_version: 'stable', args: args, **opts)
+          WebDriver::Options.firefox(args: args, **opts)
         end
 
         def ie_options(**opts)

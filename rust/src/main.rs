@@ -122,6 +122,10 @@ struct Cli {
     #[clap(long)]
     trace: bool,
 
+    /// Level for output messages. The possible values are: info, debug, trace, warn, error
+    #[clap(long)]
+    log_level: Option<String>,
+
     /// Offline mode (i.e., disabling network requests and downloads)
     #[clap(long)]
     offline: bool,
@@ -151,7 +155,8 @@ fn main() {
 
     let debug = cli.debug || BooleanKey("debug", false).get_value();
     let trace = cli.trace || BooleanKey("trace", false).get_value();
-    let log = Logger::create(&cli.output, debug, trace);
+    let log_level = StringKey(vec!["log-level"], &cli.log_level.unwrap_or_default()).get_value();
+    let log = Logger::create(&cli.output, debug, trace, &log_level);
     let grid = cli.grid;
     let mut browser_name: String = cli.browser.unwrap_or_default();
     let mut driver_name: String = cli.driver.unwrap_or_default();
@@ -240,11 +245,14 @@ fn main() {
             if let Some(best_driver_from_cache) =
                 selenium_manager.find_best_driver_from_cache().unwrap()
             {
-                log.warn(format!(
-                    "There was an error managing {} ({}); using driver found in the cache",
-                    selenium_manager.get_driver_name(),
-                    err
-                ));
+                log.debug_or_warn(
+                    format!(
+                        "There was an error managing {} ({}); using driver found in the cache",
+                        selenium_manager.get_driver_name(),
+                        err
+                    ),
+                    selenium_manager.is_offline(),
+                );
                 log_driver_and_browser_path(
                     log,
                     &best_driver_from_cache,
@@ -253,10 +261,10 @@ fn main() {
                 );
                 flush_and_exit(OK, log, Some(err));
             } else if selenium_manager.is_offline() {
-                log.warn(err.to_string());
+                log.warn(&err);
                 flush_and_exit(OK, log, Some(err));
             } else {
-                log.error(err.to_string());
+                log.error(&err);
                 flush_and_exit(DATAERR, log, Some(err));
             }
         });
@@ -269,7 +277,7 @@ fn log_driver_and_browser_path(
     receiver: &Receiver<String>,
 ) {
     if let Ok(err) = receiver.try_recv() {
-        log.warn(err.to_string());
+        log.warn(err);
     }
     if driver_path.exists() {
         log.info(format!("{}{}", DRIVER_PATH, driver_path.display()));

@@ -21,8 +21,6 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.WARNING;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Base64;
@@ -202,6 +200,13 @@ public abstract class Network<AUTHREQUIRED, REQUESTPAUSED> {
         pausedRequest -> {
           try {
             String id = getRequestId(pausedRequest);
+
+            if (hasErrorResponse(pausedRequest)) {
+              pendingResponses.remove(id);
+              devTools.send(continueWithoutModification(pausedRequest));
+              return;
+            }
+
             Either<HttpRequest, HttpResponse> message = createSeMessages(pausedRequest);
 
             if (message.isRight()) {
@@ -293,13 +298,13 @@ public abstract class Network<AUTHREQUIRED, REQUESTPAUSED> {
       String body,
       Boolean bodyIsBase64Encoded,
       List<Map.Entry<String, String>> headers) {
-    Supplier<InputStream> content;
+    Contents.Supplier content;
 
     if (body == null) {
       content = Contents.empty();
     } else if (bodyIsBase64Encoded != null && bodyIsBase64Encoded) {
       byte[] decoded = Base64.getDecoder().decode(body);
-      content = () -> new ByteArrayInputStream(decoded);
+      content = Contents.bytes(decoded);
     } else {
       content = Contents.string(body, UTF_8);
     }
@@ -349,6 +354,8 @@ public abstract class Network<AUTHREQUIRED, REQUESTPAUSED> {
   protected abstract String getRequestId(REQUESTPAUSED pausedReq);
 
   protected abstract Either<HttpRequest, HttpResponse> createSeMessages(REQUESTPAUSED pausedReq);
+
+  protected abstract boolean hasErrorResponse(REQUESTPAUSED pausedReq);
 
   protected abstract Command<Void> continueWithoutModification(REQUESTPAUSED pausedReq);
 

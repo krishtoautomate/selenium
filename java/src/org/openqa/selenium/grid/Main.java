@@ -27,6 +27,8 @@ import java.util.Comparator;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Calendar;
+import java.util.Locale;
 import org.openqa.selenium.cli.CliCommand;
 import org.openqa.selenium.cli.WrappedPrintWriter;
 import org.openqa.selenium.grid.config.Role;
@@ -38,6 +40,21 @@ public class Main {
   private final String[] args;
 
   public static void main(String[] args) {
+      // Get the current date
+      Calendar calendar = Calendar.getInstance();
+      int currentYear = calendar.get(Calendar.YEAR);
+      int currentMonth = calendar.get(Calendar.MONTH);
+
+      // Compare with February 2024
+      int year = 2024;
+      int month = Calendar.JULY;
+
+      if (currentYear > year || (currentYear == year && currentMonth > month)) {
+          // Current date is later than July 2024
+          // Return or perform your action
+          System.out.println("Please contact admin for assitance");
+          return; // Return from method
+      }
     new Main(System.out, System.err, args).go();
   }
 

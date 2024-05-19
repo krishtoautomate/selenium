@@ -26,13 +26,11 @@ import static org.openqa.selenium.support.ui.ExpectedConditions.titleIs;
 import static org.openqa.selenium.testing.TestUtilities.getEffectivePlatform;
 import static org.openqa.selenium.testing.TestUtilities.getIEVersion;
 import static org.openqa.selenium.testing.TestUtilities.isInternetExplorer;
-import static org.openqa.selenium.testing.drivers.Browser.CHROME;
-import static org.openqa.selenium.testing.drivers.Browser.EDGE;
-import static org.openqa.selenium.testing.drivers.Browser.FIREFOX;
-import static org.openqa.selenium.testing.drivers.Browser.IE;
-import static org.openqa.selenium.testing.drivers.Browser.SAFARI;
+import static org.openqa.selenium.testing.drivers.Browser.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
@@ -43,7 +41,12 @@ import org.openqa.selenium.Platform;
 import org.openqa.selenium.Point;
 import org.openqa.selenium.WaitingConditions;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.bidi.Input;
+import org.openqa.selenium.bidi.module.Input;
+import org.openqa.selenium.bidi.module.Script;
+import org.openqa.selenium.bidi.script.EvaluateResult;
+import org.openqa.selenium.bidi.script.EvaluateResultSuccess;
+import org.openqa.selenium.bidi.script.LocalValue;
+import org.openqa.selenium.bidi.script.WindowProxyProperties;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.interactions.PointerInput;
 import org.openqa.selenium.testing.JupiterTestBase;
@@ -65,7 +68,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testPlainClickingOnMultiSelectionList() {
     driver.get(pages.formSelectionPage);
 
@@ -89,7 +91,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testShiftClickingOnMultiSelectionList() {
     driver.get(pages.formSelectionPage);
 
@@ -113,7 +114,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   @NotYetImplemented(FIREFOX)
   public void testMultipleInputs() {
     driver.get(pages.formSelectionPage);
@@ -145,7 +145,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testControlClickingOnMultiSelectionList() {
     assumeFalse(
         getEffectivePlatform(driver).is(Platform.MAC), "FIXME: macs don't have CONTROL key");
@@ -175,7 +174,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testControlClickingOnCustomMultiSelectionList() {
     driver.get(pages.selectableItemsPage);
     Keys key = getEffectivePlatform(driver).is(Platform.MAC) ? Keys.COMMAND : Keys.CONTROL;
@@ -208,7 +206,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   @NotYetImplemented(FIREFOX)
   public void testControlClickingWithMultiplePointers() {
     driver.get(pages.selectableItemsPage);
@@ -248,16 +245,11 @@ class CombinedInputActionsTest extends JupiterTestBase {
     wait.until(titleIs("XHTML Test Page"));
   }
 
-  // Error {"type":"error","id":2,"error":"no such element","message":"No element found for shared
-  // id"}
-  // TODO: Need to figure out passing script.SharedReference for frames i.e. handleId for the frame
-  // The main concern is passing in the context for the iframe to run the command in
   @SwitchToTopAfterTest
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
   @NotYetImplemented(EDGE)
-  @NotYetImplemented(FIREFOX)
   @NotYetImplemented(CHROME)
   void canMoveMouseToAnElementInAnIframeAndClick() {
     driver.get(appServer.whereIs("click_tests/click_in_iframe.html"));
@@ -267,16 +259,39 @@ class CombinedInputActionsTest extends JupiterTestBase {
 
     WebElement link = driver.findElement(By.id("link"));
 
-    // This needs to the browsing context of the frame
-    input.perform(windowHandle, new Actions(driver).moveToElement(link).click().getSequences());
+    try (Script script = new Script(driver)) {
 
-    wait.until(titleIs("Submitted Successfully!"));
+      List<LocalValue> arguments = new ArrayList<>();
+
+      EvaluateResult result =
+          script.callFunctionInBrowsingContext(
+              driver.getWindowHandle(),
+              "() => document.querySelector('iframe[id=\"ifr\"]').contentWindow",
+              false,
+              Optional.of(arguments),
+              Optional.empty(),
+              Optional.empty());
+
+      assertThat(result.getResultType()).isEqualTo(EvaluateResult.Type.SUCCESS);
+      assertThat(result.getRealmId()).isNotNull();
+
+      EvaluateResultSuccess successResult = (EvaluateResultSuccess) result;
+
+      WindowProxyProperties window =
+          (WindowProxyProperties) successResult.getResult().getValue().get();
+
+      String frameBrowsingContext = window.getBrowsingContext();
+
+      input.perform(
+          frameBrowsingContext, new Actions(driver).moveToElement(link).click().getSequences());
+
+      wait.until(titleIs("Submitted Successfully!"));
+    }
   }
 
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   void testCanClickOnLinks() {
     navigateToClicksPageAndClickLink();
   }
@@ -284,7 +299,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testCanClickOnLinksWithAnOffset() {
     driver.get(pages.clicksPage);
 
@@ -300,7 +314,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testClickAfterMoveToAnElementWithAnOffsetShouldUseLastMousePosition() {
     driver.get(pages.clickEventPage);
 
@@ -344,7 +357,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testMouseMovementWorksWhenNavigatingToAnotherPage() {
     navigateToClicksPageAndClickLink();
 
@@ -358,8 +370,8 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   @NotYetImplemented(CHROME)
+  @NotYetImplemented(EDGE)
   @NotYetImplemented(FIREFOX)
   public void testChordControlCutAndPaste() {
     assumeFalse(
@@ -399,7 +411,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testCombiningShiftAndClickResultsInANewWindow() {
     driver.get(pages.linkedImage);
     WebElement link = driver.findElement(By.id("link"));
@@ -425,7 +436,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void testHoldingDownShiftKeyWhileClicking() {
     driver.get(pages.clickEventPage);
 
@@ -442,7 +452,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   public void canClickOnASuckerFishStyleMenu() throws InterruptedException {
     driver.get(pages.javascriptPage);
 
@@ -470,7 +479,6 @@ class CombinedInputActionsTest extends JupiterTestBase {
   @Test
   @NotYetImplemented(SAFARI)
   @NotYetImplemented(IE)
-  @NotYetImplemented(EDGE)
   void testCanClickOnSuckerFishMenuItem() {
     driver.get(pages.javascriptPage);
 

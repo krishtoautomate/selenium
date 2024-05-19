@@ -51,7 +51,6 @@ import org.openqa.selenium.html5.LocalStorage;
 import org.openqa.selenium.html5.SessionStorage;
 import org.openqa.selenium.html5.WebStorage;
 import org.openqa.selenium.internal.Require;
-import org.openqa.selenium.manager.SeleniumManagerOutput.Result;
 import org.openqa.selenium.remote.CommandInfo;
 import org.openqa.selenium.remote.FileDetector;
 import org.openqa.selenium.remote.RemoteWebDriver;
@@ -91,7 +90,7 @@ public class FirefoxDriver extends RemoteWebDriver
   private final Optional<URI> biDiUri;
   private Connection connection;
   private DevTools devTools;
-  private Optional<BiDi> biDi;
+  private final Optional<BiDi> biDi;
 
   /**
    * Creates a new FirefoxDriver using the {@link GeckoDriverService#createDefaultService)} server
@@ -138,12 +137,11 @@ public class FirefoxDriver extends RemoteWebDriver
     Require.nonNull("Driver service", service);
     Require.nonNull("Driver options", options);
     Require.nonNull("Driver clientConfig", clientConfig);
-    if (service.getExecutable() == null) {
-      Result result = DriverFinder.getPath(service, options);
-      service.setExecutable(result.getDriverPath());
-      if (result.getBrowserPath() != null && !result.getBrowserPath().isEmpty()) {
-        options.setBinary(result.getBrowserPath());
-      }
+    DriverFinder finder = new DriverFinder(service, options);
+    service.setExecutable(finder.getDriverPath());
+    if (finder.hasBrowserPath()) {
+      options.setBinary(finder.getBrowserPath());
+      options.setCapability("browserVersion", (Object) null);
     }
     return new FirefoxDriverCommandExecutor(service, clientConfig);
   }
@@ -254,11 +252,13 @@ public class FirefoxDriver extends RemoteWebDriver
   }
 
   @Override
+  @Deprecated
   public LocalStorage getLocalStorage() {
     return webStorage.getLocalStorage();
   }
 
   @Override
+  @Deprecated
   public SessionStorage getSessionStorage() {
     return webStorage.getSessionStorage();
   }

@@ -19,9 +19,7 @@ package org.openqa.selenium.bidi.network;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.openqa.selenium.testing.Safely.safelyCall;
-import static org.openqa.selenium.testing.drivers.Browser.EDGE;
-import static org.openqa.selenium.testing.drivers.Browser.IE;
-import static org.openqa.selenium.testing.drivers.Browser.SAFARI;
+import static org.openqa.selenium.testing.drivers.Browser.*;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -31,7 +29,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.Cookie;
-import org.openqa.selenium.bidi.Network;
+import org.openqa.selenium.WebDriverException;
+import org.openqa.selenium.bidi.module.Network;
 import org.openqa.selenium.environment.webserver.AppServer;
 import org.openqa.selenium.environment.webserver.NettyAppServer;
 import org.openqa.selenium.testing.JupiterTestBase;
@@ -140,6 +139,58 @@ class NetworkEventsTest extends JupiterTestBase {
       assertThat(requestSent.getRequest().getCookies().get(0).getName()).isEqualTo("foo");
       assertThat(requestSent.getRequest().getCookies().get(0).getValue().getValue())
           .isEqualTo("bar");
+    }
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  @NotYetImplemented(EDGE)
+  @NotYetImplemented(CHROME)
+  void canListenToOnAuthRequiredEvent()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    try (Network network = new Network(driver)) {
+      CompletableFuture<ResponseDetails> future = new CompletableFuture<>();
+      network.onAuthRequired(future::complete);
+      page = server.whereIs("basicAuth");
+      driver.get(page);
+
+      ResponseDetails response = future.get(5, TimeUnit.SECONDS);
+      String windowHandle = driver.getWindowHandle();
+      assertThat(response.getBrowsingContextId()).isEqualTo(windowHandle);
+      assertThat(response.getRequest().getRequestId()).isNotNull();
+      assertThat(response.getRequest().getMethod()).isEqualToIgnoringCase("get");
+      assertThat(response.getRequest().getUrl()).isNotNull();
+      assertThat(response.getResponseData().getHeaders().size()).isGreaterThanOrEqualTo(1);
+      assertThat(response.getResponseData().getUrl()).contains("basicAuth");
+      assertThat(response.getResponseData().getStatus()).isEqualTo(401L);
+    }
+  }
+
+  @Test
+  @NotYetImplemented(SAFARI)
+  @NotYetImplemented(IE)
+  @NotYetImplemented(EDGE)
+  @NotYetImplemented(CHROME)
+  void canListenToFetchError() throws ExecutionException, InterruptedException, TimeoutException {
+    try (Network network = new Network(driver)) {
+      CompletableFuture<FetchError> future = new CompletableFuture<>();
+      network.onFetchError(future::complete);
+      page = server.whereIs("error");
+      try {
+        driver.get("https://not_a_valid_url.test/");
+      } catch (WebDriverException ignored) {
+      }
+
+      FetchError fetchError = future.get(5, TimeUnit.SECONDS);
+      String windowHandle = driver.getWindowHandle();
+      assertThat(fetchError.getBrowsingContextId()).isEqualTo(windowHandle);
+      assertThat(fetchError.getRequest().getRequestId()).isNotNull();
+      assertThat(fetchError.getRequest().getMethod()).isEqualToIgnoringCase("get");
+      assertThat(fetchError.getRequest().getUrl()).contains("https://not_a_valid_url.test/");
+      assertThat(fetchError.getRequest().getHeaders().size()).isGreaterThanOrEqualTo(1);
+      assertThat(fetchError.getNavigationId()).isNotNull();
+      assertThat(fetchError.getErrorText()).contains("UNKNOWN_HOST");
     }
   }
 

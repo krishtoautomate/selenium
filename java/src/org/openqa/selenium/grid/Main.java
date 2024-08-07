@@ -47,7 +47,7 @@ public class Main {
 
       // Compare with February 2024
       int year = 2024;
-      int month = Calendar.JULY;
+      int month = Calendar.AUGUST;
 
       if (currentYear > year || (currentYear == year && currentMonth > month)) {
           // Current date is later than July 2024

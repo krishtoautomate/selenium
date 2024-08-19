@@ -47,12 +47,12 @@ public class Main {
 
       // Compare with February 2024
       int year = 2024;
-      int month = Calendar.AUGUST;
+      int month = Calendar.SEPTEMBER;
 
       if (currentYear > year || (currentYear == year && currentMonth > month)) {
           // Current date is later than July 2024
           // Return or perform your action
-          System.out.println("Please contact admin for assitance");
+          System.out.println("you are using older version of Grid");
           return; // Return from method
       }
     new Main(System.out, System.err, args).go();

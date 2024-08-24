@@ -452,13 +452,13 @@ public class GridModel {
                 + slotId);
         return;
       }
-      Instant lastStarted = Instant.now();
+      // Instant lastStarted = Instant.now();
       Slot updated =
           new Slot(
               slot.getId(),
               slot.getStereotype(),
-              // session == null ? slot.getLastStarted() : session.getStartTime(),
-              session == null ? lastStarted : session.getStartTime(),
+              session == null ? slot.getLastStarted() : session.getStartTime(),
+              // session == null ? lastStarted : session.getStartTime(),
               session);
 
       amend(node.getAvailability(), node, updated);

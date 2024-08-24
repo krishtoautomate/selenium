@@ -842,7 +842,7 @@ public class LocalNode extends Node {
     // If enabled, set the VNC endpoint for live view
     boolean isVncEnabled = toUse.getCapability("se:vncLocalAddress") != null;
     if (isVncEnabled) {
-      String vncPath = String.format("/session/%s/se/vnc", other.getId());
+      String vncPath = String.format("/session/%s/se/vnc", other.getId());//vnc session id is added here
       toUse = new PersistentCapabilities(toUse).setCapability("se:vnc", rewrite(vncPath));
     }
 

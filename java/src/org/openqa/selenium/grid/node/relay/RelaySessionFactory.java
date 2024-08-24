@@ -198,7 +198,15 @@ public class RelaySessionFactory implements SessionFactory {
         EXCEPTION.accept(attributeMap, e);
         String errorMessage =
             String.format(
-                "Error while creating session with the service %s. %s", serviceUrl, e.getMessage());
+                "Error while creating session with the service %s, %s. %s", serviceUrl, stereotype, e.getMessage());
+        // try {
+        //  //serviceUrl/se/grid/node/drain
+        //   System.out.println("drain node : "+serviceUrl+"/se/grid/node/drain");
+        //   client.execute(new HttpRequest(HttpMethod.POST, serviceUrl+"/se/grid/node/drain"))
+        //   .addHeader("X-REGISTRATION-SECRET", "");
+        // } catch (Exception e1) {
+        //   //ignore
+        // }
         attributeMap.put(EXCEPTION_MESSAGE.getKey(), errorMessage);
         span.addEvent(EXCEPTION_EVENT.getKey(), attributeMap);
         return Either.left(new SessionNotCreatedException(errorMessage));

@@ -652,6 +652,7 @@ public class LocalDistributor extends Distributor implements AutoCloseable {
     } catch (SessionNotCreatedException e) {
       result = Either.left(e);
     } catch (RuntimeException e) {
+      // drain(node.getId()); //drain node on exception
       result = Either.left(new SessionNotCreatedException(e.getMessage(), e));
     }
     if (result.isLeft()) {

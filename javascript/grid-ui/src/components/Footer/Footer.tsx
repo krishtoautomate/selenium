@@ -23,7 +23,7 @@ function Footer (): JSX.Element {
   return (
     <Box pt={4}>
       <Typography variant='body2' color='textSecondary' align='center'>
-        <Link href='#/help' underline='hover'>
+        {/* <Link href='#/help' underline='hover'>
           Help
         </Link>
         {' - All rights reserved - '}
@@ -35,7 +35,7 @@ function Footer (): JSX.Element {
         >
           Software Freedom Conservancy
         </Link>{' '}
-        {new Date().getFullYear()}.
+        {new Date().getFullYear()}. */}
       </Typography>
     </Box>
   )

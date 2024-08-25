@@ -22,7 +22,7 @@ import typography from './typography'
 const theme: Theme = createTheme({
   palette: {
     primary: {
-      main: '#615E9B'
+      main: '#00549a!important'
     },
     secondary: {
       main: '#F7F8F8'

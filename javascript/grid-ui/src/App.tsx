@@ -104,7 +104,7 @@ function App () {
           <Container maxWidth={false} sx={{ paddingY: 4 }}>
             <Routes>
               <Route path='/sessions' element={<Sessions />} />
-              <Route path='/help' element={<Help />} />
+              {/* <Route path='/help' element={<Help />} /> */}
               <Route path='/' element={<Overview />} />
               <Route path='*' element={<Help />} />
             </Routes>

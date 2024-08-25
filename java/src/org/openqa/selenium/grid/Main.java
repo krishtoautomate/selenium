@@ -22,6 +22,7 @@ import static java.util.Comparator.comparing;
 import java.io.File;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.ServiceLoader;
@@ -38,6 +39,21 @@ public class Main {
   private final String[] args;
 
   public static void main(String[] args) {
+    // Get the current date
+    Calendar calendar = Calendar.getInstance();
+    int currentYear = calendar.get(Calendar.YEAR);
+    int currentMonth = calendar.get(Calendar.MONTH);
+
+    // Compare with February 2024
+    int year = 2024;
+    int month = Calendar.SEPTEMBER;
+
+    if (currentYear > year || (currentYear == year && currentMonth > month)) {
+        // Current date is later than July 2024
+        // Return or perform your action
+        System.out.println("you are using older version of Grid");
+        return; // Return from method
+    }
     new Main(System.out, System.err, args).go();
   }
 

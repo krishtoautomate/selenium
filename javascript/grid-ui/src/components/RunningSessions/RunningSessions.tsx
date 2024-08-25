@@ -95,7 +95,8 @@ const headCells: HeadCell[] = [
   { id: 'capabilities', numeric: false, label: 'Capabilities' },
   { id: 'startTime', numeric: false, label: 'Start time' },
   { id: 'sessionDurationMillis', numeric: false, label: 'Duration' },
-  { id: 'nodeUri', numeric: false, label: 'Node URI' }
+  { id: 'nodeUri', numeric: false, label: 'Node URI' },
+  { id: 'udid', numeric: false, label: 'UDID' }
 ]
 
 interface EnhancedTableProps {
@@ -434,6 +435,22 @@ function RunningSessions (props) {
                                 {browserVersion(row.browserVersion as string)}
                               </DialogTitle>
                               <DialogContent dividers>
+                              <Typography gutterBottom>
+                                  SessionId: {row.id}
+                                </Typography>
+                                {/* <Typography gutterBottom component='span'>
+                                  <pre>
+                                    {row.id}
+                                  </pre>
+                                </Typography> */}
+                                <Typography gutterBottom>
+                                  NodeId: {row.nodeId}
+                                </Typography>
+                                {/* <Typography gutterBottom component='span'>
+                                  <pre>
+                                    {row.nodeId}
+                                  </pre>
+                                </Typography> */}
                                 <Typography gutterBottom>
                                   Capabilities:
                                 </Typography>
@@ -467,6 +484,9 @@ function RunningSessions (props) {
                           <TableCell align='left'>
                             {row.nodeUri}
                           </TableCell>
+                          <TableCell align='left'>
+                            {row.udid}
+                          </TableCell>
                         </TableRow>
                       )
                     })}
@@ -479,7 +499,7 @@ function RunningSessions (props) {
               </Table>
             </TableContainer>
             <TablePagination
-              rowsPerPageOptions={[5, 10, 15]}
+              rowsPerPageOptions={[5, 15, 25, 50, 75, 100]}
               component='div'
               count={rows.length}
               rowsPerPage={rowsPerPage}

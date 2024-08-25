@@ -154,12 +154,12 @@ function NavBar (props) {
             </ListItemIcon>
             <ListItemText primary='Sessions' />
           </ListItemLink>
-          <ListItemLink href='#/help'>
+          {/* <ListItemLink href='#/help'>
             <ListItemIcon>
               <HelpIcon />
             </ListItemIcon>
             <ListItemText primary='Help' />
-          </ListItemLink>
+          </ListItemLink> */}
         </div>
       </List>
       <Box flexGrow={1} />

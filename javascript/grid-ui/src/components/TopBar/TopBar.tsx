@@ -24,7 +24,7 @@ import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { ChevronLeft as ChevronLeftIcon } from '@mui/icons-material'
 import { Menu as MenuIcon } from '@mui/icons-material'
-import { Help as HelpIcon } from '@mui/icons-material'
+// import { Help as HelpIcon } from '@mui/icons-material'
 import React from 'react'
 import seleniumGridLogo from '../../assets/selenium-grid-logo.svg'
 

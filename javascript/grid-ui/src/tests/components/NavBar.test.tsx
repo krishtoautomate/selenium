@@ -34,7 +34,7 @@ it('renders menu options names', () => {
   )
   expect(screen.getByText('Sessions')).toBeInTheDocument()
   expect(screen.getByText('Overview')).toBeInTheDocument()
-  expect(screen.getByText('Help')).toBeInTheDocument()
+  // expect(screen.getByText('Help')).toBeInTheDocument()
 })
 
 it('overall concurrency is not rendered on root path with a single node',

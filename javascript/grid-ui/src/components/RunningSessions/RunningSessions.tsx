@@ -98,7 +98,8 @@ const headCells: HeadCell[] = [
   { id: 'capabilities', numeric: false, label: 'Capabilities' },
   { id: 'startTime', numeric: false, label: 'Start time' },
   { id: 'sessionDurationMillis', numeric: true, label: 'Duration' },
-  { id: 'nodeUri', numeric: false, label: 'Node URI' }
+  { id: 'nodeUri', numeric: false, label: 'Node URI' },
+  { id: 'udid', numeric: false, label: 'Udid' }
 ]
 
 interface EnhancedTableProps {
